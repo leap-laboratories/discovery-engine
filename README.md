@@ -1,56 +1,20 @@
-# Discovery Engine MCP Server
+# Discovery Engine
 
-MCP server for [Discovery Engine](https://www.leap-labs.com) by Leap Laboratories. Superhuman exploratory data analysis – finds insight you wouldn't think to look for. Novel, statistically validated patterns surfaced automatically — feature interactions, subgroup effects, and conditional relationships you'd otherwise miss. Multiple scientific discoveries to date: free for open data. 
+Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
 
-## Quick Start
+Made by [Leap Laboratories](https://www.leap-labs.com).
 
-```bash
-pip install discovery-engine-mcp
-```
+## What It Does
 
-Set your API key and run:
+Discovery Engine is a discovery pipeline, not an AI data analyst. It finds patterns you would not think to look for — complex feature interactions, threshold effects, subgroup differences — validates each on hold-out data with FDR-corrected p-values, and checks every finding against academic literature for novelty. Returns structured results with conditions, effect sizes, p-values, citations, and novelty scores.
 
-```bash
-export DISCOVERY_API_KEY=disco_...
-discovery-engine-mcp
-```
+**Use it when you want:** "what's really driving X?", "find something we're missing", "discover non-obvious patterns"
 
-Or run with `uvx` (no install needed):
+**Not for:** summary statistics, visualisation, filtering, SQL queries
 
-```bash
-DISCOVERY_API_KEY=disco_... uvx discovery-engine-mcp
-```
+## Get an API Key
 
-### Claude Desktop / Cursor
-
-Add to your MCP config:
-
-```json
-{
-  "mcpServers": {
-    "discovery-engine": {
-      "command": "uvx",
-      "args": ["discovery-engine-mcp"],
-      "env": {
-        "DISCOVERY_API_KEY": "disco_..."
-      }
-    }
-  }
-}
-```
-
-### Remote (Streamable HTTP)
-
-Connect directly to the hosted server — no local install needed:
-
-```
-URL: https://disco.leap-labs.com/mcp
-Auth: Bearer disco_...
-```
-
-## Getting an API Key
-
-Sign up from the command line (no password, no credit card):
+Sign up from the command line — no password, no credit card:
 
 ```bash
 # Step 1: Request verification code
@@ -63,48 +27,79 @@ curl -X POST https://disco.leap-labs.com/api/signup \
 curl -X POST https://disco.leap-labs.com/api/signup/verify \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "code": "123456"}'
-# → {"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}
+# → {"key": "disco_...", "credits": 10, "tier": "free_tier"}
 ```
 
 Or create a key at [disco.leap-labs.com/developers](https://disco.leap-labs.com/developers).
 
-Free tier: 10 credits/month for private runs, unlimited public runs.
+Free tier: 10 credits/month for private runs, unlimited public runs. No card required.
 
-## Tools
+## Python SDK
 
-### Discovery
+```bash
+pip install discovery-engine-api
+```
 
-| Tool | Description |
-|------|-------------|
-| `discovery_analyze` | Run Discovery Engine on tabular data to find novel patterns |
-| `discovery_status` | Check the status of a running analysis |
-| `discovery_get_results` | Fetch full results (patterns, p-values, citations, feature importance) |
-| `discovery_estimate` | Estimate cost and time before running |
+```python
+from discovery import Engine
 
-### Account management
+engine = Engine(api_key="disco_...")
+result = await engine.discover(
+    file="data.csv",
+    target_column="outcome",
+)
 
-| Tool | Description |
-|------|-------------|
-| `discovery_signup` | Start account creation — sends verification code to email |
-| `discovery_signup_verify` | Complete signup by submitting the verification code |
-| `discovery_account` | Check account status, credits, and plan |
-| `discovery_list_plans` | List available plans with pricing |
-| `discovery_subscribe` | Subscribe to or change your plan |
-| `discovery_purchase_credits` | Buy credit packs |
-| `discovery_add_payment_method` | Attach a Stripe payment method |
+for pattern in result.patterns:
+    if pattern.p_value < 0.05 and pattern.novelty_type == "novel":
+        print(f"{pattern.description} (p={pattern.p_value:.4f})")
 
-## Configuration
+print(f"Full report: {result.report_url}")
+```
 
-Set `DISCOVERY_API_KEY` to your API key (starts with `disco_`).
+→ [Full Python SDK reference](docs/python-sdk.md) · [Example notebook](notebooks/quickstart.ipynb)
+
+## MCP Server
+
+For AI agents. Add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "discovery-engine": {
+      "url": "https://disco.leap-labs.com/mcp",
+      "env": { "DISCOVERY_API_KEY": "disco_..." }
+    }
+  }
+}
+```
+
+Or install locally with `uvx`:
+
+```bash
+DISCOVERY_API_KEY=disco_... uvx discovery-engine-mcp
+```
+
+→ [Agent skill file](SKILL.md) · [PyPI](https://pypi.org/project/discovery-engine-mcp/)
+
+## Pricing
+
+| | Cost |
+|---|---|
+| Public runs | Free (results published, depth locked to 1) |
+| Private runs | 1 credit per MB per depth iteration ($1.00/credit) |
+| Free tier | 10 credits/month, no card required |
+| Researcher | $49/month, 50 credits |
+| Team | $199/month, 200 credits |
 
 ## Links
 
-- [Full Documentation (LLM-friendly)](https://disco.leap-labs.com/llms-full.txt)
-- [Python SDK](https://pypi.org/project/discovery-engine-api/) — `pip install discovery-engine-api`
-- [Agent Integration Guide](https://disco.leap-labs.com/agents)
-- [API Keys & Dashboard](https://disco.leap-labs.com/developers)
-- [OpenAPI Spec](https://disco.leap-labs.com/.well-known/openapi.json)
-- [MCP Manifest](https://disco.leap-labs.com/.well-known/mcp.json)
+- [Dashboard](https://disco.leap-labs.com)
+- [API keys](https://disco.leap-labs.com/developers)
+- [Agent integration](https://disco.leap-labs.com/agents)
+- [LLM-friendly reference](llms.txt)
+- [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
+- [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
+- [MCP server on PyPI](https://pypi.org/project/discovery-engine-mcp/)
 
 ## License
 
