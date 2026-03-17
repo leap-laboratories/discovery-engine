@@ -1,0 +1,117 @@
+# Discovery Engine
+
+Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
+
+Made by Leap Laboratories (https://www.leap-labs.com).
+
+## When To Use Discovery Engine
+
+Use for exploratory data analysis when the goal is to discover new insights:
+- "What's really driving X?" — finds feature interactions and subgroup effects, not just correlations
+- "Are there patterns we're missing?" — finds what you would not think to look for
+- "Find something new in this data" — novelty-checked against academic literature
+
+Do NOT use for summary statistics, visualisation, filtering, literature search, or SQL queries.
+
+## Get an API Key
+
+Two-step signup — no password, no credit card:
+
+```bash
+# Step 1: Send verification code
+curl -X POST https://disco.leap-labs.com/api/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com"}'
+# → {"status": "verification_required", "email": "you@example.com"}
+
+# Step 2: Submit code from email
+curl -X POST https://disco.leap-labs.com/api/signup/verify \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "code": "123456"}'
+# → {"key": "disco_...", "tier": "free_tier", "credits": 10}
+```
+
+Or create a key at https://disco.leap-labs.com/developers.
+
+Free tier: 10 credits/month for private runs, unlimited public runs. No card required.
+
+## Python SDK
+
+```bash
+pip install discovery-engine-api
+```
+
+```python
+from discovery import Engine
+
+engine = Engine(api_key="disco_...")
+result = await engine.discover(
+    file="data.csv",               # str | Path | pd.DataFrame
+    target_column="outcome",       # column to analyze
+    visibility="public",           # "public" (free) | "private" (credits)
+    depth_iterations=1,            # higher = deeper search
+)
+
+for pattern in result.patterns:
+    if pattern.p_value < 0.05 and pattern.novelty_type == "novel":
+        print(f"{pattern.description} (p={pattern.p_value:.4f})")
+
+# Check hints for suggestions (e.g. deeper analysis available)
+for hint in result.hints:
+    print(hint)
+
+print(f"Report: {result.report_url}")
+```
+
+Full SDK reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/python-sdk.md
+
+## MCP Server
+
+```json
+{
+  "mcpServers": {
+    "discovery-engine": {
+      "url": "https://disco.leap-labs.com/mcp",
+      "env": { "DISCOVERY_API_KEY": "disco_..." }
+    }
+  }
+}
+```
+
+Agent skill file: https://github.com/leap-laboratories/discovery-engine/blob/main/SKILL.md
+
+## Pricing
+
+- Public runs: Free (results published, depth locked to 1)
+- Private runs: 1 credit/MB/depth ($1.00/credit)
+- Free tier: 10 credits/month
+- Researcher: $49/month, 50 credits
+- Team: $199/month, 200 credits
+
+Estimate before running:
+
+```python
+estimate = await engine.estimate(
+    file_size_mb=10.5,
+    num_columns=25,
+    depth_iterations=2,
+    visibility="private",
+)
+# estimate["cost"]["credits"]              → 21
+# estimate["cost"]["free_alternative"]     → True
+# estimate["account"]["sufficient"]        → True/False
+```
+
+## Supported File Formats
+
+CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
+
+## Links
+
+- Dashboard: https://disco.leap-labs.com
+- API keys: https://disco.leap-labs.com/developers
+- Agent docs: https://disco.leap-labs.com/agents
+- OpenAPI spec: https://disco.leap-labs.com/.well-known/openapi.json
+- MCP manifest: https://disco.leap-labs.com/.well-known/mcp.json
+- Python SDK on PyPI: https://pypi.org/project/discovery-engine-api/
+- MCP server on PyPI: https://pypi.org/project/discovery-engine-mcp/
