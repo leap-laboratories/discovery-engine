@@ -1,17 +1,14 @@
 startCommand:
-  type: stdio
+  type: http
   configSchema:
     type: object
-    required:
-      - apiKey
     properties:
       apiKey:
         type: string
         title: "API Key"
-        description: "Your Discovery Engine API key (starts with disco_). Get one at https://disco.leap-labs.com/developers"
+        description: "Your Discovery Engine API key (starts with disco_). Get one free at https://disco.leap-labs.com/sign-up"
   commandFunction: |
     config => ({
-      command: 'uvx',
-      args: ['discovery-engine-mcp'],
-      env: { DISCOVERY_API_KEY: config.apiKey }
+      url: 'https://disco.leap-labs.com/mcp',
+      headers: config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}
     })
