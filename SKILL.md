@@ -169,6 +169,25 @@ for pattern in result.patterns:
         print(f"{pattern.description} (p={pattern.p_value:.4f})")
 ```
 
+### Inspecting Columns Before Running
+
+If you need to see the dataset's columns before choosing a target column, upload first and inspect:
+
+```python
+# Upload once and get the server's parsed column list
+upload = await engine.upload_file(file="data.csv", title="My dataset")
+print(upload["columns"])   # [{"name": "col1", "type": "continuous", ...}, ...]
+print(upload["rowCount"])  # e.g., 5000
+
+# Pass the result to avoid re-uploading
+result = await engine.run_async(
+    file="data.csv",
+    target_column="col1",
+    wait=True,
+    upload_result=upload,  # skips the upload step
+)
+```
+
 ### Running in the Background
 
 If you need to do other work while Discovery Engine runs (recommended for agent workflows):
@@ -629,3 +648,4 @@ CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 5 GB.
 - [Full LLM Documentation](https://disco.leap-labs.com/llms-full.txt)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
 - [API Spec](https://disco.leap-labs.com/.well-known/openapi.json)
+
