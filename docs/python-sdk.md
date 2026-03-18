@@ -47,6 +47,9 @@ await engine.discover(
     description: str | None = None,     # Dataset description
     column_descriptions: dict[str, str] | None = None,  # Improves pattern explanations
     excluded_columns: list[str] | None = None,           # Columns to exclude (e.g., IDs)
+    task: str | None = None,            # "regression" | "binary_classification" | "multiclass_classification" (auto-detected)
+    author: str | None = None,          # Dataset author attribution
+    source_url: str | None = None,      # URL of the original data source
     timeout: float = 1800,              # Max seconds to wait
 )
 ```
@@ -112,8 +115,12 @@ If you need to see the dataset's columns before choosing a target column — e.g
 ```python
 # Upload once and get the server's parsed column list
 upload = await engine.upload_file(file="data.csv", title="My dataset")
-print(upload["columns"])   # [{"name": "col1", "type": "continuous", ...}, ...]
-print(upload["rowCount"])  # e.g., 5000
+# upload["file"]    -> {"key": "uploads/abc123.csv", "name": "data.csv",
+#                        "size": 1048576, "fileHash": "sha256:..."}
+# upload["columns"] -> [{"name": "col1", "type": "continuous", ...}, ...]
+# upload["rowCount"] -> 5000
+print(upload["columns"])
+print(upload["rowCount"])
 
 # Pass the result to avoid re-uploading
 result = await engine.run_async(
@@ -187,9 +194,13 @@ estimate = await engine.estimate(
     depth_iterations=2,
     visibility="private",
 )
-# estimate["cost"]["credits"] -> 21
-# estimate["cost"]["free_alternative"] -> True
-# estimate["account"]["sufficient"] -> True/False
+# estimate["cost"]["credits"]               -> 21
+# estimate["cost"]["price_usd"]             -> 21.0
+# estimate["cost"]["free_alternative"]      -> True
+# estimate["cost"]["free_alternative_note"] -> "Run publicly for free (depth locked to 1, results published)"
+# estimate["time_estimate"]["estimated_seconds"] -> 360
+# estimate["account"]["sufficient"]         -> True/False
+# estimate["limits"]["max_depth"]           -> 23  (num_columns - 2)
 ```
 
 Manage credits and plans at [disco.leap-labs.com/account](https://disco.leap-labs.com/account).
@@ -336,7 +347,7 @@ Computed using **Hierarchical Perturbation (HiPe)**, an ablation-based method. S
 ```python
 @dataclass
 class FeatureImportance:
-    kind: str                           # "global"
+    kind: str                           # "global" | "local"
     baseline: float                     # Baseline model output
     scores: list[FeatureImportanceScore]
 
@@ -366,7 +377,7 @@ except AuthenticationError as e:
     print(e.suggestion)  # "Check your API key at https://disco.leap-labs.com/developers"
 except InsufficientCreditsError as e:
     print(f"Need {e.credits_required}, have {e.credits_available}")
-    print(e.suggestion)  # "Purchase credits or run publicly for free"
+    print(e.suggestion)  # "Run with visibility='public' (free, depth=1) or purchase credits with engine.purchase_credits()."
 except RateLimitError as e:
     print(f"Retry after {e.retry_after} seconds")
 except RunFailedError as e:
@@ -384,7 +395,7 @@ All errors include a `suggestion` field with actionable instructions.
 
 ## MCP Server
 
-Discovery Engine is available as an [MCP server](https://disco.leap-labs.com/.well-known/mcp.json) with tools for the full discovery lifecycle — estimate, analyze, check status, get results, manage account.
+Discovery Engine is available as an [MCP server](https://disco.leap-labs.com/.well-known/mcp.json) with tools for the full discovery lifecycle — estimate, analyze, check status, get results, manage account. To subscribe or purchase credits via MCP, call `discovery_add_payment_method` first to attach a Stripe payment method.
 
 ```json
 {
