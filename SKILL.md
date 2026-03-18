@@ -622,5 +622,4 @@ CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 5 GB.
 - [Dashboard & API Keys](https://disco.leap-labs.com/developers)
 - [Full LLM Documentation](https://disco.leap-labs.com/llms-full.txt)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
-- [MCP Server on PyPI](https://pypi.org/project/discovery-engine-mcp/)
 - [API Spec](https://disco.leap-labs.com/.well-known/openapi.json)
