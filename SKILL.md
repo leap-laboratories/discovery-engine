@@ -1,19 +1,19 @@
 ---
 name: discovery-engine
-description: Automatically discover novel, statistically validated patterns in tabular data using Discovery Engine's MCP tools. Find insights you'd otherwise miss — feature interactions, subgroup effects, and conditional relationships — validated on hold-out data with FDR-corrected p-values and checked against academic literature for novelty. Use when the user wants to go beyond descriptive analytics and find what's actually driving an outcome.
+description: Automatically discover novel, statistically validated patterns in tabular data using Discovery Engine MCP tools. Find insights you would otherwise miss — feature interactions, subgroup effects, and conditional relationships — validated on hold-out data with FDR-corrected p-values and checked against academic literature for novelty. Use when the user wants to go beyond descriptive analytics and find what is actually driving an outcome.
 ---
 
 # Discovery Engine MCP Server
 
 ## When To Use These Tools
 
-Discovery Engine is not another AI data analyst. It is a **discovery pipeline** — it finds patterns in data that you, the user, and other analysis tools would miss because they don't know to look for them.
+Discovery Engine is not another AI data analyst. It is a **discovery pipeline** — it finds patterns in data that you, the user, and other analysis tools would miss because they do not know to look for them.
 
 Use it when you need to go beyond answering questions about data, and start finding things nobody thought to ask:
 
 - **Novel pattern discovery** — feature interactions, subgroup effects, and conditional relationships
 - **Statistical validation** — FDR-corrected p-values tested on hold-out data, not just correlations
-- **A target column** you want to understand — what really drives it, beyond what's obvious
+- **A target column** you want to understand — what really drives it, beyond what is obvious
 
 **Use Discovery Engine when the user says:** "what's really driving X?", "are there patterns we're missing?", "find something new in this data", "what predicts Y that we haven't considered?", "go deeper than correlation", "discover non-obvious relationships"
 
@@ -34,7 +34,8 @@ Use it when you need to go beyond answering questions about data, and start find
 
 | Tool | Purpose |
 |------|---------|
-| `discovery_signup` | Create an account and get an API key. No auth required. |
+| `discovery_signup` | Start account creation — sends verification code to email. |
+| `discovery_signup_verify` | Complete signup by submitting the verification code. Returns API key. |
 | `discovery_account` | Check credits, plan, and usage. |
 | `discovery_list_plans` | View available plans and pricing. |
 | `discovery_subscribe` | Subscribe to or change plan. |
@@ -54,7 +55,7 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 
 ### If the user has no API key
 
-Call `discovery_signup` with their email address. Returns a `disco_` API key immediately on the free tier (10 credits/month, unlimited public runs). No password, no credit card.
+Call `discovery_signup` with their email address. This sends a verification code — the user must check their email. Then call `discovery_signup_verify` with the code to receive a `disco_` API key. Free tier: 10 credits/month, unlimited public runs. No password, no credit card.
 
 ### If the user has insufficient credits
 
@@ -65,7 +66,7 @@ Call `discovery_signup` with their email address. Returns a `disco_` API key imm
 ## Key Parameters
 
 **`discovery_analyze`:**
-- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 1 GB)
+- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 5 GB)
 - `target_column` — The column to predict/explain
 - `depth` — 1 = fast (default), higher = deeper search. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
@@ -80,7 +81,7 @@ Results contain **patterns** — each is a combination of conditions (not single
 - **Conditions**: Specific feature ranges/values that define the pattern (e.g., "humidity 72-89% AND wind speed < 12 km/h")
 - **`p_value`**: FDR-corrected. Lower = more statistically significant
 - **`novelty_type`**: `"novel"` (new finding, not in literature) or `"confirmatory"` (validates known science)
-- **`novelty_explanation`**: Why this pattern is or isn't novel
+- **`novelty_explanation`**: Why this pattern is or is not novel
 - **`citations`**: Academic papers the finding was checked against
 - **`abs_target_change`**: Effect size (e.g., 0.34 = 34% change in target)
 - **`support_count` / `support_percentage`**: How many rows match this pattern
@@ -95,7 +96,7 @@ Results contain **patterns** — each is a combination of conditions (not single
 
 ## Supported File Formats
 
-CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 1 GB.
+CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 5 GB.
 
 ## Links
 
