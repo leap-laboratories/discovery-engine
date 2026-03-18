@@ -73,13 +73,7 @@ For AI agents. Add to your MCP config:
 }
 ```
 
-Or install locally with `uvx`:
-
-```bash
-DISCOVERY_API_KEY=disco_... uvx discovery-engine-mcp
-```
-
-→ [Agent skill file](SKILL.md) · [PyPI](https://pypi.org/project/discovery-engine-mcp/)
+→ [Agent skill file](SKILL.md)
 
 ## Pricing
 
@@ -99,7 +93,7 @@ DISCOVERY_API_KEY=disco_... uvx discovery-engine-mcp
 - [LLM-friendly reference](llms.txt)
 - [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
-- [MCP server on PyPI](https://pypi.org/project/discovery-engine-mcp/)
+
 
 ## License
 
