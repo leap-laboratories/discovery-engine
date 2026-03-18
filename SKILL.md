@@ -1,5 +1,12 @@
 ---
 name: discovery-engine
+homepage: https://disco.leap-labs.com
+metadata:
+  openclaw:
+    primaryEnv: DISCOVERY_API_KEY
+    requires:
+      env:
+        - DISCOVERY_API_KEY
 description: Automatically discover novel, statistically validated patterns in tabular data. Find insights you'd otherwise miss, far faster and cheaper than doing it yourself (or prompting an agent to do it). Discovery Engine systematically searches for feature interactions, subgroup effects, and conditional relationships you wouldn't think to look for, validates each on hold-out data with FDR-corrected p-values, and checks every finding against academic literature for novelty. Returns structured patterns with conditions, effect sizes, citations, and novelty scores.
 ---
 
