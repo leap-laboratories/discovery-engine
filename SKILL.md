@@ -40,10 +40,11 @@ Add to your MCP config:
 
 | Tool | Purpose |
 |------|---------|
-| `discovery_analyze` | Submit a dataset for analysis. Returns a `run_id`. |
+| `discovery_estimate` | Estimate cost and time before committing to a run. |
+| `discovery_upload` | Upload a dataset file and return a `file_ref` for use with `discovery_analyze`. |
+| `discovery_analyze` | Submit an uploaded dataset for analysis. Returns a `run_id`. |
 | `discovery_status` | Poll a running analysis by `run_id`. |
 | `discovery_get_results` | Fetch completed results: patterns, p-values, citations, feature importance. |
-| `discovery_estimate` | Estimate cost and time before committing to a run. |
 
 #### Account management
 
@@ -63,16 +64,23 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 
 ```
 1. discovery_estimate     → Check cost/time (always do this for private runs)
-2. discovery_analyze      → Submit the dataset, get run_id
-3. discovery_status       → Poll until status is "completed"
-4. discovery_get_results  → Fetch patterns, summary, feature importance
+2. discovery_upload       → Upload the file, get file_ref
+3. discovery_analyze      → Submit file_ref, get run_id
+4. discovery_status       → Poll until status is "completed"
+5. discovery_get_results  → Fetch patterns, summary, feature importance
 ```
 
 ### MCP Parameters
 
+**`discovery_upload`:**
+- `file_content` — The file contents, base64-encoded.
+- `file_name` — Filename including extension (e.g. `"data.csv"`) — used for format detection. Supported: CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
+- `api_key` — Discovery Engine API key (`disco_...`). Optional if `DISCOVERY_API_KEY` env var is set.
+
+Returns `{"file": {...}, "columns": [...], "row_count": N}` — pass the entire return value as `file_ref` to `discovery_analyze`.
+
 **`discovery_analyze`:**
-- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 5 GB). Provide either `file_path` or `file_ref`, not both.
-- `file_ref` — JSON string with a pre-uploaded file reference: `{"file": {...}, "columns": [...]}`. Use this when you've already uploaded the file via the presigned URL flow to avoid re-uploading.
+- `file_ref` — The object returned by `discovery_upload`. Required — call `discovery_upload` first.
 - `target_column` — The column to predict/explain
 - `depth_iterations` — 1 = fast (default), higher = deeper search. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
