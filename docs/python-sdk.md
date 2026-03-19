@@ -33,7 +33,7 @@ for pattern in result.patterns:
 print(f"Full report: {result.report_url}")
 ```
 
-Get your API key from the [Developers page](https://disco.leap-labs.com/docs).
+Get your API key from the [Developers page](https://disco.leap-labs.com/developers).
 
 ## Parameters
 
@@ -374,7 +374,7 @@ from discovery.errors import (
 try:
     result = await engine.discover(file="data.csv", target_column="target")
 except AuthenticationError as e:
-    print(e.suggestion)  # "Check your API key at https://disco.leap-labs.com/docs"
+    print(e.suggestion)  # "Check your API key at https://disco.leap-labs.com/developers"
 except InsufficientCreditsError as e:
     print(f"Need {e.credits_required}, have {e.credits_available}")
     print(e.suggestion)  # "Run with visibility='public' (free, depth=1) or purchase credits with engine.purchase_credits()."
@@ -411,7 +411,7 @@ Discovery Engine is available as an [MCP server](https://disco.leap-labs.com/.we
 ## Links
 
 - **PyPI**: [discovery-engine-api](https://pypi.org/project/discovery-engine-api/)
-- **API keys**: [disco.leap-labs.com/docs](https://disco.leap-labs.com/docs)
+- **API keys**: [disco.leap-labs.com/developers](https://disco.leap-labs.com/developers)
 - **LLM-friendly docs**: [disco.leap-labs.com/llms-full.txt](https://disco.leap-labs.com/llms-full.txt)
 - **MCP manifest**: [disco.leap-labs.com/.well-known/mcp.json](https://disco.leap-labs.com/.well-known/mcp.json)
 - **Credits & billing**: [disco.leap-labs.com/account](https://disco.leap-labs.com/account)

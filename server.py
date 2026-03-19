@@ -2,9 +2,6 @@
 
 Exposes Discovery Engine as MCP tools for AI agents.
 Covers the full lifecycle: discovery, estimation, account management.
-
-NOTE: A public copy of this file lives at github.com/leap-laboratories/discovery-engine.
-It is synced automatically on every staging → main merge via .github/workflows/sync-public-repo.yml.
 """
 
 from __future__ import annotations
@@ -15,13 +12,10 @@ import os
 
 import httpx
 from mcp.server.fastmcp import FastMCP
-from mcp.server.streamable_http import TransportSecuritySettings
 
 logger = logging.getLogger(__name__)
 
-DASHBOARD_URL = os.getenv("DISCOVERY_DASHBOARD_URL") or os.getenv(
-    "DASHBOARD_BASE_URL", "https://disco.leap-labs.com"
-)
+DASHBOARD_URL = os.getenv("DISCOVERY_DASHBOARD_URL", "https://disco.leap-labs.com")
 
 # API key from environment — avoids passing secrets through tool parameters
 # where they'd be logged by MCP clients.
@@ -40,17 +34,6 @@ mcp = FastMCP(
         "that finds novel, statistically validated patterns in tabular data — "
         "feature interactions, subgroup effects, and conditional relationships "
         "you wouldn't think to look for."
-    ),
-    stateless_http=True,  # Enable stateless mode for edge deployments (Modal, Vercel)
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=[
-            "localhost:*",
-            "127.0.0.1:*",
-            "[::1]:*",
-            # Public-facing URL (proxied via Vercel)
-            "disco.leap-labs.com",
-        ],
     ),
 )
 

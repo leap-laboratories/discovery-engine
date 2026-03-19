@@ -31,7 +31,7 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 # → {"key": "disco_...", "tier": "free_tier", "credits": 10}
 ```
 
-Or create a key at https://disco.leap-labs.com/docs.
+Or create a key at https://disco.leap-labs.com/developers.
 
 Free tier: 10 credits/month for private runs, unlimited public runs. No card required.
 
@@ -109,8 +109,8 @@ CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
 ## Links
 
 - Dashboard: https://disco.leap-labs.com
-- API keys: https://disco.leap-labs.com/docs
-- Agent docs: https://disco.leap-labs.com/docs
+- API keys: https://disco.leap-labs.com/developers
+- Agent docs: https://disco.leap-labs.com/agents
 - OpenAPI spec: https://disco.leap-labs.com/.well-known/openapi.json
 - MCP manifest: https://disco.leap-labs.com/.well-known/mcp.json
 - Python SDK on PyPI: https://pypi.org/project/discovery-engine-api/

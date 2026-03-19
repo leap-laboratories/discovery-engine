@@ -40,11 +40,10 @@ Add to your MCP config:
 
 | Tool | Purpose |
 |------|---------|
-| `discovery_estimate` | Estimate cost and time before committing to a run. |
-| `discovery_upload` | Upload a dataset file and return a `file_ref` for use with `discovery_analyze`. |
-| `discovery_analyze` | Submit an uploaded dataset for analysis. Returns a `run_id`. |
+| `discovery_analyze` | Submit a dataset for analysis. Returns a `run_id`. |
 | `discovery_status` | Poll a running analysis by `run_id`. |
 | `discovery_get_results` | Fetch completed results: patterns, p-values, citations, feature importance. |
+| `discovery_estimate` | Estimate cost and time before committing to a run. |
 
 #### Account management
 
@@ -64,351 +63,35 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 
 ```
 1. discovery_estimate     → Check cost/time (always do this for private runs)
-2. discovery_upload       → Upload the file, get file_ref
-3. discovery_analyze      → Submit file_ref, get run_id
-4. discovery_status       → Poll until status is "completed"
-5. discovery_get_results  → Fetch patterns, summary, feature importance
+2. discovery_analyze      → Submit the dataset, get run_id
+3. discovery_status       → Poll until status is "completed"
+4. discovery_get_results  → Fetch patterns, summary, feature importance
 ```
 
-### MCP Tool Reference
-
----
-
-#### `discovery_estimate`
-
-Estimate cost and time before committing to a run. Always call this before a private run.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `file_size_mb` | float | required | Dataset size in MB |
-| `num_columns` | int | required | Number of columns |
-| `num_rows` | int | optional | Row count — improves time estimate accuracy |
-| `depth_iterations` | int | 1 | Search depth (1=fast, higher=deeper) |
-| `visibility` | string | `"public"` | `"public"` or `"private"` |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_estimate(file_size_mb=10.5, num_columns=25, num_rows=5000, depth_iterations=2, visibility="private")
-→ {
-    "cost": {
-      "credits": 21,
-      "usd": 21.0,
-      "free_alternative": true
-    },
-    "time_estimate": {
-      "low_seconds": 180,
-      "median_seconds": 360,
-      "high_seconds": 720
-    },
-    "account": {
-      "credits_available": 10,
-      "sufficient": false
-    }
-  }
-```
-
-`free_alternative: true` means the same dataset can be run publicly at depth=1 for free (results will be published).
-
----
-
-#### `discovery_upload`
-
-Upload a dataset file. Returns a `file_ref` to pass to `discovery_analyze`. Supported formats: CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `file_content` | string | required | File contents, base64-encoded |
-| `file_name` | string | `"data.csv"` | Filename with extension — used for format detection |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_upload(file_content="<base64>", file_name="patients.csv")
-→ {
-    "file": {"key": "uploads/abc123/patients.csv", "name": "patients.csv", "size": 11010048, "fileHash": "sha256:..."},
-    "columns": [
-      {"name": "age", "type": "continuous", "data_type": "int"},
-      {"name": "treatment", "type": "categorical", "data_type": "string"},
-      {"name": "outcome", "type": "continuous", "data_type": "float"}
-    ],
-    "row_count": 4200
-  }
-```
-
-Pass the full return value as `file_ref` to `discovery_analyze`. Inspect `columns` to confirm column names and choose `target_column`.
-
----
-
-#### `discovery_analyze`
-
-Submit an uploaded dataset for analysis. Returns immediately with a `run_id` — the analysis runs asynchronously (3-15 min). Call `discovery_upload` first to get `file_ref`.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `file_ref` | object | required | Return value from `discovery_upload` |
-| `target_column` | string | required | Column to analyze — what drives it? |
-| `depth_iterations` | int | 1 | Search depth. Max: `num_columns - 2`. Public runs locked to 1. |
-| `visibility` | string | `"public"` | `"public"` (free, results published) or `"private"` (costs credits) |
-| `column_descriptions` | object | optional | Maps column names to descriptions — **always provide if column names are non-obvious** (e.g. `{"col_7": "patient age", "feat_a": "blood pressure"}`). Significantly improves pattern quality. |
-| `excluded_columns` | array | optional | Column names to exclude from analysis |
-| `title` | string | optional | Title for the analysis report |
-| `description` | string | optional | Description of the dataset |
-| `author` | string | optional | Author name |
-| `source_url` | string | optional | URL of the original data source |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_analyze(
-  file_ref={"file": {...}, "columns": [...], "row_count": 4200},
-  target_column="outcome",
-  visibility="private",
-  depth_iterations=2,
-  column_descriptions={"col_7": "patient age", "feat_a": "blood pressure"},
-  excluded_columns=["patient_id"],
-  title="Patient outcome study"
-)
-→ {
-    "run_id": "a1b2c3d4-e5f6-...",
-    "status": "pending"
-  }
-```
-
----
-
-#### `discovery_status`
-
-Poll the status of a running analysis. Lightweight — does not return results. Use this while waiting for completion.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `run_id` | string | required | Run ID from `discovery_analyze` |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_status(run_id="a1b2c3d4-e5f6-...")
-→ {
-    "run_id": "a1b2c3d4-e5f6-...",
-    "status": "processing",    # "pending" | "processing" | "completed" | "failed"
-    "job_id": "job_xyz",
-    "job_status": "running",
-    "error_message": null
-  }
-```
-
-Poll every 30-60 seconds. Call `discovery_get_results` once `status` is `"completed"`.
-
----
-
-#### `discovery_get_results`
-
-Fetch full results of a completed run. Only call after `discovery_status` returns `"completed"`.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `run_id` | string | required | Run ID from `discovery_analyze` |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_get_results(run_id="a1b2c3d4-e5f6-...")
-→ {
-    "run_id": "a1b2c3d4-...",
-    "status": "completed",
-    "report_url": "https://disco.leap-labs.com/reports/a1b2c3d4-...",
-    "summary": {
-      "overview": "14 patterns found, 5 novel...",
-      "key_insights": ["Humidity × wind speed interaction increases yield by 34%", ...]
-    },
-    "patterns": [
-      {
-        "id": "p-1",
-        "description": "When humidity is 72-89% AND wind speed < 12 km/h, yield increases 34%",
-        "conditions": [
-          {"feature": "humidity_pct", "type": "continuous", "min_value": 72.0, "max_value": 89.0},
-          {"feature": "wind_speed_kmh", "type": "continuous", "min_value": 0.0, "max_value": 12.0}
-        ],
-        "p_value": 0.003,
-        "novelty_type": "novel",
-        "novelty_explanation": "This interaction has not been reported in the literature.",
-        "citations": [{"title": "...", "authors": [...], "year": "2021", "doi": "..."}],
-        "target_change_direction": "max",
-        "abs_target_change": 0.34,
-        "support_percentage": 16.9
-      }
-    ],
-    "feature_importance": {
-      "scores": [{"feature": "humidity_pct", "score": 1.82}, ...]
-    },
-    "hints": ["15 deeper patterns available — upgrade to explore further."]
-  }
-```
-
-Always share `report_url` with the user — it links to an interactive visual report. Check `hints` for suggestions (e.g. deeper analysis available on higher plans).
-
----
-
-#### `discovery_list_plans`
-
-List available plans and pricing. No authentication required.
-
-```
-discovery_list_plans()
-→ [
-    {"id": "free_tier", "name": "Explorer",   "price_usd": 0,   "monthly_credits": 10},
-    {"id": "tier_1",    "name": "Researcher", "price_usd": 49,  "monthly_credits": 50},
-    {"id": "tier_2",    "name": "Team",       "price_usd": 199, "monthly_credits": 200}
-  ]
-```
-
-Call this before `discovery_subscribe` to show the user their options.
-
----
-
-#### `discovery_account`
-
-Check account status: plan, credits, payment method. Call this before any private run to confirm sufficient credits.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_account()
-→ {
-    "plan": "free_tier",
-    "credits": {
-      "total": 8,
-      "subscription": 8,
-      "purchased": 0
-    },
-    "has_payment_method": false,
-    "stripe_publishable_key": "pk_live_...",
-    "stripe_customer_id": "cus_..."
-  }
-```
-
-`stripe_publishable_key` is needed to tokenize a card via Stripe's API when attaching a payment method.
-
----
-
-#### `discovery_signup`
-
-Start account creation. Sends a 6-digit verification code to the email address. No authentication required.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `email` | string | required | Email address for the new account |
-| `name` | string | optional | Display name (defaults to email local part) |
-
-```
-discovery_signup(email="user@example.com", name="Alice")
-→ {"status": "verification_required", "email": "user@example.com"}
-```
-
-The user must check their inbox. Follow up with `discovery_signup_verify`. Returns 409 if the email is already registered.
-
----
-
-#### `discovery_signup_verify`
-
-Complete signup by submitting the verification code from email. Returns an API key on success. No authentication required.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `email` | string | required | Same email used in `discovery_signup` |
-| `code` | string | required | 6-digit code from the verification email |
-
-```
-discovery_signup_verify(email="user@example.com", code="482931")
-→ {
-    "key": "disco_abc123...",
-    "tier": "free_tier",
-    "credits": 10
-  }
-```
-
-Store the returned key as `DISCOVERY_API_KEY`. Free tier: 10 credits/month, unlimited public runs, no card required.
-
----
-
-#### `discovery_add_payment_method`
-
-Attach a Stripe payment method to the account. Required before purchasing credits or subscribing to a paid plan.
-
-Card data never touches Discovery Engine — tokenize it via Stripe's API first using the `stripe_publishable_key` from `discovery_account`:
-
-```bash
-curl -X POST https://api.stripe.com/v1/payment_methods \
-  -u "pk_live_...:" \
-  -d "type=card" \
-  -d "card[number]=4242424242424242" \
-  -d "card[exp_month]=12" \
-  -d "card[exp_year]=2028" \
-  -d "card[cvc]=123"
-# → {"id": "pm_...", "type": "card", ...}
-```
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `payment_method_id` | string | required | Stripe payment method ID (`pm_...`) |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_add_payment_method(payment_method_id="pm_1abc...")
-→ {"payment_method_attached": true, "card_last4": "4242", "card_brand": "visa"}
-```
-
----
-
-#### `discovery_purchase_credits`
-
-Buy credit packs. Credits cost $1.00 each, sold in packs of 20 ($20/pack). Requires a payment method on file.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `packs` | int | 1 | Number of 20-credit packs to purchase |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_purchase_credits(packs=2)
-→ {
-    "purchased_credits": 40,
-    "total_credits": 48,
-    "charge_amount_usd": 40.0,
-    "stripe_payment_id": "pi_..."
-  }
-```
-
----
-
-#### `discovery_subscribe`
-
-Subscribe to or change plan. Paid plans require a payment method on file. Credits roll over month to month on paid plans.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `plan` | string | required | `"free_tier"`, `"tier_1"`, or `"tier_2"` |
-| `api_key` | string | optional | Falls back to `DISCOVERY_API_KEY` env var |
-
-```
-discovery_subscribe(plan="tier_1")
-→ {"plan": "tier_1", "name": "Researcher", "monthly_credits": 50, "price_usd": 49}
-```
-
-Plans: `"free_tier"` (free, 10 cr/mo) · `"tier_1"` ($49/mo, 50 cr/mo) · `"tier_2"` ($199/mo, 200 cr/mo). Call `discovery_list_plans` to show the user current pricing before subscribing.
-
----
+### MCP Parameters
+
+**`discovery_analyze`:**
+- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 5 GB). Provide either `file_path` or `file_ref`, not both.
+- `file_ref` — JSON string with a pre-uploaded file reference: `{"file": {...}, "columns": [...]}`. Use this when you've already uploaded the file via the presigned URL flow to avoid re-uploading.
+- `target_column` — The column to predict/explain
+- `depth_iterations` — 1 = fast (default), higher = deeper search. Max: num_columns - 2
+- `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
+- `column_descriptions` — JSON object mapping column names to descriptions. Significantly improves pattern explanations — always provide if column names are non-obvious
+- `excluded_columns` — JSON array of column names to exclude from analysis
+- `title` — Optional title for the analysis
+- `description` — Optional description of the dataset
+- `author` — Optional author name for the dataset
+- `source_url` — Optional URL of the original data source
 
 ### No API key?
 
-Call `discovery_signup` → user checks email for 6-digit code → call `discovery_signup_verify` → receive API key. Free tier gives 10 credits/month and unlimited public runs immediately. No password, no credit card required.
+Call `discovery_signup` with the user's email. This sends a verification code — the user must check their email. Then call `discovery_signup_verify` with the code to receive a `disco_` API key. Free tier: 10 credits/month, unlimited public runs. No password, no credit card.
 
 ### Insufficient credits?
 
-First offer a public run — free, results published, depth locked to 1. If the user needs a private run:
-
-1. `discovery_account` — check `credits.total` and `has_payment_method`
-2. If no payment method: tokenize a card via Stripe's API (using `stripe_publishable_key` from account), then `discovery_add_payment_method`
-3. Either `discovery_purchase_credits` (one-off packs) or `discovery_subscribe` (monthly plan)
-4. Call `discovery_list_plans` before subscribing to show current pricing
+1. Call `discovery_estimate` to show what it would cost
+2. Suggest running publicly (free, but results are published and depth is locked to 1)
+3. Or guide them through `discovery_purchase_credits` / `discovery_subscribe`
 
 ---
 
@@ -453,7 +136,7 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 ```
 
 
-**Manual (for humans):** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/docs.
+**Manual (for humans):** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/developers.
 
 ## Installation
 
@@ -724,7 +407,7 @@ engine.discover(
 - **Public runs**: Free. Results published to public gallery. Locked to depth=1.
 - **Private runs**: 1 credit per MB per depth iteration. $1.00 per credit.
 - Formula: `credits = max(1, ceil(file_size_mb * depth_iterations))`
-- API keys: https://disco.leap-labs.com/docs
+- API keys: https://disco.leap-labs.com/developers
 - Credits: https://disco.leap-labs.com/account
 
 ## Paying for Credits (Programmatic)
@@ -981,7 +664,7 @@ CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 5 GB.
 
 ## Links
 
-- [Dashboard & API Keys](https://disco.leap-labs.com/docs)
+- [Dashboard & API Keys](https://disco.leap-labs.com/developers)
 - [Full LLM Documentation](https://disco.leap-labs.com/llms-full.txt)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
 - [API Spec](https://disco.leap-labs.com/.well-known/openapi.json)
