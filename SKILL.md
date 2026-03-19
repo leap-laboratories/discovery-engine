@@ -14,8 +14,10 @@ description: Automatically discover novel, statistically validated patterns in t
 
 ## Integration Options
 
-- **MCP server** — for agents with MCP support. Remote server at `https://disco.leap-labs.com/mcp`, no local install required.
-- **Python SDK** — `pip install discovery-engine-api`. Use when you need programmatic control or are working in a Python environment.
+- **MCP server** — remote server at `https://disco.leap-labs.com/mcp`, no install required. Best for datasets at a URL.
+- **Python SDK** — `pip install discovery-engine-api`. **Use this for local files of any size.** Runs on your machine and streams files directly — no base64, no size limits.
+
+**Quick rule:** if the data is at a URL, use MCP. If it's a large local file, use the Python SDK — the hosted MCP server can't read your filesystem, and base64-encoding large files through a tool call is impractical due to context window limits. Exception: if you're running the MCP server locally (cloned from GitHub, stdio transport), use `file_path` in `discovery_upload`.
 
 ---
 
@@ -40,7 +42,8 @@ Add to your MCP config:
 
 | Tool | Purpose |
 |------|---------|
-| `discovery_analyze` | Submit a dataset for analysis. Returns a `run_id`. |
+| `discovery_upload` | Upload a dataset by URL or file content. Returns a `file_ref` for use with `discovery_analyze`. |
+| `discovery_analyze` | Submit a dataset for analysis using a `file_ref` from `discovery_upload`. Returns a `run_id`. |
 | `discovery_status` | Poll a running analysis by `run_id`. |
 | `discovery_get_results` | Fetch completed results: patterns, p-values, citations, feature importance. |
 | `discovery_estimate` | Estimate cost and time before committing to a run. |
@@ -63,16 +66,90 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 
 ```
 1. discovery_estimate     → Check cost/time (always do this for private runs)
-2. discovery_analyze      → Submit the dataset, get run_id
-3. discovery_status       → Poll until status is "completed"
-4. discovery_get_results  → Fetch patterns, summary, feature importance
+2. discovery_upload       → Upload the dataset, get file_ref
+3. discovery_analyze      → Submit for analysis using file_ref, get run_id
+4. discovery_status       → Poll until status is "completed"
+5. discovery_get_results  → Fetch patterns, summary, feature importance
 ```
+
+### Getting Data In
+
+**The dataset is at a URL** (public dataset, S3 presigned URL, any http/https link):
+
+```
+discovery_upload(file_url="https://example.com/dataset.csv")
+→ {"file": {...}, "columns": [{"name": "col1", "type": "continuous"}, ...], "rowCount": 5000}
+
+discovery_analyze(file_ref=<result above>, target_column="outcome")
+→ {"run_id": "abc123", "status": "pending"}
+```
+
+The server downloads the file directly — nothing passes through the agent.
+
+---
+
+**The dataset is a small local file:**
+
+Read and base64-encode it, then upload:
+
+```python
+import base64
+content = base64.b64encode(open("data.csv", "rb").read()).decode()
+```
+
+```
+discovery_upload(file_content=<content>, file_name="data.csv")
+→ {"file": {...}, "columns": [...], "rowCount": 500}
+
+discovery_analyze(file_ref=<result above>, target_column="outcome")
+```
+
+---
+
+**The dataset is a large local file:**
+
+The hosted MCP server runs remotely and cannot read your filesystem. Base64-encoding a large file through a tool call is impractical. **Use the Python SDK instead** — it runs on your machine and streams files of any size directly:
+
+```python
+from discovery import Engine
+
+engine = Engine(api_key="disco_...")
+result = await engine.discover("large_dataset.csv", target_column="outcome")
+```
+
+See the **Python SDK** section below for full documentation.
+
+---
+
+**Running the MCP server locally** (cloned from GitHub, stdio transport):
+
+If you're running `server.py` locally, the process has direct filesystem access. Use `file_path`:
+
+```
+discovery_upload(file_path="/home/user/data/dataset.csv")
+→ {"file": {...}, "columns": [...], "rowCount": 5000}
+
+discovery_analyze(file_ref=<result above>, target_column="outcome")
+```
+
+The file is read locally and streamed directly to cloud storage — nothing passes through the model context. This works for files of any size. `file_path` is ignored by the hosted server at `disco.leap-labs.com/mcp`.
+
+---
 
 ### MCP Parameters
 
+**`discovery_upload`:**
+- `file_url` — http/https URL to download from. The server downloads it directly.
+- `file_content` — File contents, base64-encoded. For small files only.
+- `file_path` — Absolute path to a local file. **Only works when running the MCP server locally** (not the hosted version at disco.leap-labs.com/mcp). Streams files of any size directly.
+- `file_name` — Filename with extension (e.g. `"data.csv"`), for format detection. Required when using `file_content`. Default: `"data.csv"`.
+
+Provide exactly one of `file_url`, `file_content`, or `file_path`.
+
+Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (list of column names and types, useful if you need to inspect before choosing a target column).
+
 **`discovery_analyze`:**
-- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 5 GB). Provide either `file_path` or `file_ref`, not both.
-- `file_ref` — JSON string with a pre-uploaded file reference: `{"file": {...}, "columns": [...]}`. Use this when you've already uploaded the file via the presigned URL flow to avoid re-uploading.
+- `file_ref` — File reference returned by `discovery_upload`. Required.
 - `target_column` — The column to predict/explain
 - `depth_iterations` — 1 = fast (default), higher = deeper search. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)

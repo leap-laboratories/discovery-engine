@@ -47,10 +47,9 @@ await engine.discover(
     description: str | None = None,     # Dataset description
     column_descriptions: dict[str, str] | None = None,  # Improves pattern explanations
     excluded_columns: list[str] | None = None,           # Columns to exclude (e.g., IDs)
-    task: str | None = None,            # "regression" | "binary_classification" | "multiclass_classification" (auto-detected)
-    author: str | None = None,          # Dataset author attribution
-    source_url: str | None = None,      # URL of the original data source
     timeout: float = 1800,              # Max seconds to wait
+    # Additional kwargs forwarded to run_async():
+    # task, author, source_url, timeseries_groups, ...
 )
 ```
 
