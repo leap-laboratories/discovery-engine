@@ -17,7 +17,7 @@ description: Automatically discover novel, statistically validated patterns in t
 - **MCP server** — remote server at `https://disco.leap-labs.com/mcp`, no install required. Best for datasets at a URL.
 - **Python SDK** — `pip install discovery-engine-api`. **Use this for local files of any size.** Runs on your machine and streams files directly — no base64, no size limits.
 
-**Quick rule:** if the data is at a URL, use MCP. If it's a large local file, use the Python SDK — the hosted MCP server can't read your filesystem, and base64-encoding large files through a tool call is impractical due to context window limits. Exception: if you're running the MCP server locally (cloned from GitHub, stdio transport), use `file_path` in `discovery_upload`.
+**Quick rule:** if the data is at a URL, use `file_url` in `discovery_upload`. If it's a local file, use the Python SDK — or if Python isn't available, upload directly via the presign API and pass the result to `discovery_analyze`. Don't use `file_content` (base64) unless the file is already in memory and tiny.
 
 ---
 
@@ -42,7 +42,7 @@ Add to your MCP config:
 
 | Tool | Purpose |
 |------|---------|
-| `discovery_upload` | Upload a dataset by URL or file content. Returns a `file_ref` for use with `discovery_analyze`. |
+| `discovery_upload` | Upload a dataset. Supports URL download (`file_url`), local path (`file_path`), or base64 content (`file_content`). Returns a `file_ref` for use with `discovery_analyze`. |
 | `discovery_analyze` | Submit a dataset for analysis using a `file_ref` from `discovery_upload`. Returns a `run_id`. |
 | `discovery_status` | Poll a running analysis by `run_id`. |
 | `discovery_get_results` | Fetch completed results: patterns, p-values, citations, feature importance. |
@@ -74,56 +74,47 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 
 ### Getting Data In
 
-**The dataset is at a URL** (public dataset, S3 presigned URL, any http/https link):
+Choose the right path for your situation:
+
+| Situation | Best approach |
+|-----------|--------------|
+| Data is at an http/https URL | `file_url` in `discovery_upload` |
+| Local file, Python available | Python SDK (`engine.discover(...)`) |
+| Local file, MCP server running locally | `file_path` in `discovery_upload` |
+| Local file, hosted MCP, no Python | Direct upload API (3 steps — see below) |
+| Tiny file already in memory | `file_content` in `discovery_upload` (last resort) |
+
+---
+
+**Data at a URL:**
 
 ```
 discovery_upload(file_url="https://example.com/dataset.csv")
 → {"file": {...}, "columns": [{"name": "col1", "type": "continuous"}, ...], "rowCount": 5000}
 
 discovery_analyze(file_ref=<result above>, target_column="outcome")
-→ {"run_id": "abc123", "status": "pending"}
 ```
 
-The server downloads the file directly — nothing passes through the agent.
+The server downloads the file directly — nothing passes through the agent or the model context. Works with public URLs, S3 presigned URLs, or any accessible http/https link.
 
 ---
 
-**The dataset is a small local file:**
-
-Read and base64-encode it, then upload:
-
-```python
-import base64
-content = base64.b64encode(open("data.csv", "rb").read()).decode()
-```
-
-```
-discovery_upload(file_content=<content>, file_name="data.csv")
-→ {"file": {...}, "columns": [...], "rowCount": 500}
-
-discovery_analyze(file_ref=<result above>, target_column="outcome")
-```
-
----
-
-**The dataset is a large local file:**
-
-The hosted MCP server runs remotely and cannot read your filesystem. Base64-encoding a large file through a tool call is impractical. **Use the Python SDK instead** — it runs on your machine and streams files of any size directly:
+**Local file — Python SDK** (recommended for any local file):
 
 ```python
 from discovery import Engine
 
 engine = Engine(api_key="disco_...")
-result = await engine.discover("large_dataset.csv", target_column="outcome")
+result = await engine.discover("data.csv", target_column="outcome")
 ```
 
-See the **Python SDK** section below for full documentation.
+Handles upload, polling, and results in one call. No size limit. See the **Python SDK** section for full documentation.
 
 ---
 
-**Running the MCP server locally** (cloned from GitHub, stdio transport):
+**Local file — MCP server running locally** (cloned from GitHub, stdio transport):
 
-If you're running `server.py` locally, the process has direct filesystem access. Use `file_path`:
+If you've cloned the repo and are running `server.py` locally, the process can read your filesystem directly:
 
 ```
 discovery_upload(file_path="/home/user/data/dataset.csv")
@@ -132,19 +123,67 @@ discovery_upload(file_path="/home/user/data/dataset.csv")
 discovery_analyze(file_ref=<result above>, target_column="outcome")
 ```
 
-The file is read locally and streamed directly to cloud storage — nothing passes through the model context. This works for files of any size. `file_path` is ignored by the hosted server at `disco.leap-labs.com/mcp`.
+Reads the file locally and streams it directly to cloud storage — nothing passes through the model context. No size limit. **`file_path` is silently ignored by the hosted server at `disco.leap-labs.com/mcp`** — it only works with a locally-running server.
+
+---
+
+**Local file — hosted MCP, direct upload** (works from any language):
+
+If you're using the hosted MCP server and Python isn't available, you can upload directly via the REST API in three steps, then pass the result to `discovery_analyze` as normal.
+
+```bash
+# 1. Get a presigned upload URL
+curl -X POST https://disco.leap-labs.com/api/data/upload/presign \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"fileName": "data.csv", "contentType": "text/csv", "fileSize": 1048576}'
+# → {"uploadUrl": "https://storage.googleapis.com/...", "key": "uploads/abc/data.csv", "uploadToken": "tok_..."}
+
+# 2. PUT the file directly to cloud storage (the uploadUrl is pre-signed — no auth header needed)
+curl -X PUT "<uploadUrl from step 1>" \
+  -H "Content-Type: text/csv" \
+  --data-binary @data.csv
+
+# 3. Finalize the upload
+curl -X POST https://disco.leap-labs.com/api/data/upload/finalize \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"key": "uploads/abc/data.csv", "uploadToken": "tok_..."}'
+# → {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
+```
+
+Pass the finalize response directly to `discovery_analyze` as `file_ref`. No size limit.
+
+---
+
+**Last resort — tiny file already in memory:**
+
+Only use this if the file is already loaded into memory and none of the above options apply. The base64-encoded content passes through the model's context window, so this only works for very small files.
+
+```python
+import base64
+content = base64.b64encode(open("data.csv", "rb").read()).decode()
+```
+
+```
+discovery_upload(file_content=content, file_name="data.csv")
+→ {"file": {...}, "columns": [...], "rowCount": 500}
+
+discovery_analyze(file_ref=<result above>, target_column="outcome")
+```
 
 ---
 
 ### MCP Parameters
 
 **`discovery_upload`:**
-- `file_url` — http/https URL to download from. The server downloads it directly.
-- `file_content` — File contents, base64-encoded. For small files only.
-- `file_path` — Absolute path to a local file. **Only works when running the MCP server locally** (not the hosted version at disco.leap-labs.com/mcp). Streams files of any size directly.
-- `file_name` — Filename with extension (e.g. `"data.csv"`), for format detection. Required when using `file_content`. Default: `"data.csv"`.
 
-Provide exactly one of `file_url`, `file_content`, or `file_path`.
+Provide exactly one of `file_url`, `file_path`, or `file_content`.
+
+- `file_url` — http/https URL. The server downloads it directly. Best option for hosted MCP.
+- `file_path` — Absolute path to a local file. **Only works when the MCP server is running locally.** Silently ignored by the hosted server.
+- `file_content` — File contents, base64-encoded. **Last resort only** — the content passes through the model's context window, so this only works for very small files.
+- `file_name` — Filename with extension (e.g. `"data.csv"`), used for format detection. Required with `file_content`. Default: `"data.csv"`.
 
 Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (list of column names and types, useful if you need to inspect before choosing a target column).
 
