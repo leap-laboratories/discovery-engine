@@ -1,29 +1,48 @@
 # Discovery Engine
 
-Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
+**Find novel, statistically validated patterns in tabular data** — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
+
+[![PyPI](https://img.shields.io/pypi/v/discovery-engine-api)](https://pypi.org/project/discovery-engine-api/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Made by [Leap Laboratories](https://www.leap-labs.com).
 
-## What It Does
+---
 
-Discovery Engine is a discovery pipeline, not an AI data analyst. It finds patterns you would not think to look for — complex feature interactions, threshold effects, subgroup differences — validates each on hold-out data with FDR-corrected p-values, and checks every finding against academic literature for novelty. Returns structured results with conditions, effect sizes, p-values, citations, and novelty scores.
+## What it actually does
 
-**Use it when you want:** "what's really driving X?", "find something we're missing", "discover non-obvious patterns"
+Most data analysis starts with a question. Discovery Engine starts with the data.
 
-**Not for:** summary statistics, visualisation, filtering, SQL queries
+Without biases or assumptions, it searches for combinations of feature conditions that significantly shift your target column — things like "patients aged 45–65 with low HDL *and* high CRP have 3× the readmission rate" — without you needing to hypothesise that interaction first.
 
-## Get an API Key
+Each pattern is:
+- **Validated on a hold-out set** — increases the chance of generalisation
+- **FDR-corrected** — p-values included, adjusted for multiple testing
+- **Checked against academic literature** — to help you understand what you've found, and identify if it is novel.
 
-Sign up from the command line — no password, no credit card:
+The output is structured: conditions, effect sizes, p-values, citations, and a novelty classification for every pattern found.
+
+**Use it when:** "which variables are most important with respect to X", "are there patterns we're missing?", "I don't know where to start with this data", "I need to understand how A and B affect C".
+
+**Not for:** summary statistics, visualisation, filtering, SQL queries — use pandas for those
+
+---
+
+## Quickstart
 
 ```bash
-# Step 1: Request verification code
+pip install discovery-engine-api
+```
+
+Get an API key:
+
+```bash
+# Step 1: request verification code (no password, no card)
 curl -X POST https://disco.leap-labs.com/api/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com"}'
-# → {"status": "verification_required", "email": "you@example.com"}
 
-# Step 2: Submit code from email
+# Step 2: submit code from email → get key
 curl -X POST https://disco.leap-labs.com/api/signup/verify \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "code": "123456"}'
@@ -32,13 +51,7 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 
 Or create a key at [disco.leap-labs.com/docs](https://disco.leap-labs.com/docs).
 
-Free tier: 10 credits/month for private runs, unlimited public runs. No card required.
-
-## Python SDK
-
-```bash
-pip install discovery-engine-api
-```
+Run your first analysis:
 
 ```python
 from discovery import Engine
@@ -53,14 +66,132 @@ for pattern in result.patterns:
     if pattern.p_value < 0.05 and pattern.novelty_type == "novel":
         print(f"{pattern.description} (p={pattern.p_value:.4f})")
 
-print(f"Full report: {result.report_url}")
+print(f"Explore: {result.report_url}")
 ```
+
+Runs take 3+ minutes (or more for very large datasets). `discover()` polls automatically. For background runs, see [Running asynchronously](#running-asynchronously).
 
 → [Full Python SDK reference](docs/python-sdk.md) · [Example notebook](notebooks/quickstart.ipynb)
 
-## MCP Server
+---
 
-For AI agents. Add to your MCP config:
+## What you get back
+
+Each `Pattern` in `result.patterns` looks like this (real output from a crop yield dataset):
+
+```python
+Pattern(
+    description="When humidity is between 72–89% AND wind speed is below 12 km/h, "
+                "crop yield increases by 34% above the dataset average",
+    conditions=[
+        {"type": "continuous", "feature": "humidity_pct",
+         "min_value": 72.0, "max_value": 89.0},
+        {"type": "continuous", "feature": "wind_speed_kmh",
+         "min_value": 0.0, "max_value": 12.0},
+    ],
+    p_value=0.003,              # FDR-corrected
+    novelty_type="novel",
+    novelty_explanation="Published studies examine humidity and wind speed as independent "
+                        "predictors, but this interaction effect — where low wind amplifies "
+                        "the benefit of high humidity within a specific range — has not been "
+                        "reported in the literature.",
+    citations=[
+        {"title": "Effects of relative humidity on cereal crop productivity",
+         "authors": ["Zhang, L.", "Wang, H."], "year": "2021",
+         "journal": "Journal of Agricultural Science"},
+    ],
+    target_change_direction="max",
+    abs_target_change=0.34,     # 34% increase
+    support_count=847,          # rows matching this pattern
+    support_percentage=16.9,
+)
+```
+
+Key things to notice:
+
+- **Patterns are combinations of conditions** — humidity AND wind speed together, not just "more humidity is better"
+- **Specific thresholds** — 72–89%, not a vague correlation
+- **Novel vs confirmatory** — every pattern is classified; confirmatory ones validate known science, novel ones are what you came for
+- **Citations** — shows what IS known, so you can see what's genuinely new
+- **`report_url`** links to an interactive web report with all patterns visualised
+
+The `result.summary` gives an LLM-generated narrative overview:
+
+```python
+result.summary.overview
+# "Discovery Engine identified 14 statistically significant patterns. 5 are novel.
+#  The strongest driver is a previously unreported interaction between humidity
+#  and wind speed at specific thresholds."
+
+result.summary.key_insights
+# ["Humidity × low wind speed at 72–89% humidity produces a 34% yield increase — novel.",
+#  "Soil nitrogen above 45 mg/kg shows diminishing returns when phosphorus is below 12 mg/kg.",
+#  ...]
+```
+
+---
+
+## How it works
+
+Discovery Engine is a pipeline, not prompt engineering over data. It:
+
+1. Trains machine learning models on a subset of your data
+2. Uses interpretability techniques to extract learned patterns
+3. Validates every pattern on the held-out data with FDR correction (Benjamini-Hochberg)
+4. Checks surviving patterns against academic literature via semantic search
+
+You cannot replicate this by writing pandas code or asking an LLM to look at a CSV. It finds structure that hypothesis-driven analysis misses because it doesn't start with hypotheses.
+
+---
+
+## Parameters
+
+```python
+await engine.discover(
+    file="data.csv",           # path, Path, or pd.DataFrame
+    target_column="outcome",   # column to predict/explain
+    depth_iterations=1,        # 1=fast, higher=deeper (max: num_columns − 2)
+    visibility="public",       # "public" (free) or "private" (costs credits)
+    column_descriptions={      # improves pattern explanations and literature context
+        "bmi": "Body mass index",
+        "hdl": "HDL cholesterol in mg/dL",
+    },
+    excluded_columns=["id", "timestamp"],
+    title="My dataset",
+    description="...", # improves pattern explanations and literature context
+)
+```
+
+> Public runs are free but results are published. Set `visibility="private"` for private data — this costs credits.
+
+---
+
+## Running asynchronously
+
+Runs take 3+ minutes, more very very large datasets. For agent workflows or scripts that do other work in parallel:
+
+```python
+# Submit without waiting
+run = await engine.run_async(file="data.csv", target_column="outcome", wait=False)
+print(f"Submitted {run.run_id}, continuing...")
+
+# ... do other things ...
+
+result = await engine.wait_for_completion(run.run_id, timeout=1800)
+```
+
+For synchronous scripts and Jupyter notebooks:
+
+```python
+result = engine.run(file="data.csv", target_column="outcome", wait=True)
+# or: pip install discovery-engine-api[jupyter] for notebook compatibility
+```
+
+---
+
+## MCP server
+
+Discovery Engine is available as an MCP server — no local install required.
 
 ```json
 {
@@ -73,28 +204,42 @@ For AI agents. Add to your MCP config:
 }
 ```
 
-→ [Agent skill file](SKILL.md)
+Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery_status`, `discovery_get_results`, plus account management tools.
+
+→ [Full agent skill file](SKILL.md) · [MCP docs](docs/mcp.md)
+
+---
 
 ## Pricing
 
 | | Cost |
 |---|---|
-| Public runs | Free (results published, depth locked to 1) |
+| Public runs | Free — results published, depth locked to 1 |
 | Private runs | 1 credit per MB per depth iteration ($1.00/credit) |
 | Free tier | 10 credits/month, no card required |
-| Researcher | $49/month, 50 credits |
-| Team | $199/month, 200 credits |
+| Researcher | $49/month — 50 credits |
+| Team | $199/month — 200 credits |
+
+Estimate before running:
+
+```python
+estimate = await engine.estimate(file_size_mb=10.5, num_columns=25, depth_iterations=2, visibility="private")
+# estimate["cost"]["credits"] → 21
+# estimate["cost"]["free_alternative"] → True
+# estimate["account"]["sufficient"] → True/False
+```
+
+---
 
 ## Links
 
 - [Dashboard](https://disco.leap-labs.com)
 - [API keys](https://disco.leap-labs.com/docs)
-- [Agent integration](https://disco.leap-labs.com/docs)
+- [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
+- [Python SDK reference](docs/python-sdk.md)
+- [Agent / MCP docs](docs/mcp.md)
 - [LLM-friendly reference](llms.txt)
 - [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
-- [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
+- [Public reports gallery](https://disco.leap-labs.com/discover)
 
-
-## License
-
-MIT
+---
