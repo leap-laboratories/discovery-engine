@@ -359,38 +359,50 @@ async def discovery_upload(
         except Exception as e:
             return json.dumps({"error": f"Invalid file_content (base64 decode failed): {e}"})
 
-        client = await _get_dashboard_client()
-        upload_headers = {"Authorization": f"Bearer {resolved_key}", "X-Client-Type": "mcp"}
+        mime_type = _MIME_TYPES.get(Path(file_name).suffix.lower(), "text/csv")
+
+        presign = await _dashboard_request(
+            "POST",
+            "/api/data/upload/presign",
+            api_key=resolved_key,
+            json_body={"fileName": file_name, "contentType": mime_type, "fileSize": len(raw_bytes)},
+        )
+        if "error" in presign:
+            return json.dumps(presign)
+
         try:
-            resp = await client.post(
-                "/api/data/upload",
-                headers=upload_headers,
-                files={"file": (file_name, raw_bytes)},
-                timeout=300.0,
-            )
+            async with httpx.AsyncClient(timeout=1800.0) as upload_client:
+                upload_resp = await upload_client.put(
+                    presign["uploadUrl"],
+                    content=raw_bytes,
+                    headers={"Content-Type": mime_type},
+                )
+                if upload_resp.status_code >= 400:
+                    return json.dumps(
+                        {"error": f"Storage upload failed ({upload_resp.status_code})"}
+                    )
         except Exception as e:
-            return json.dumps({"error": f"Upload failed: {e}"})
+            return json.dumps({"error": f"Storage upload failed: {e}"})
 
-        if resp.status_code >= 400:
-            try:
-                detail = resp.json()
-                errors = detail.get("issues", {}).get("errors", [])
-                msg = errors[0].get("message") if errors else detail.get("error", resp.text)
-            except Exception:
-                msg = resp.text
-            return json.dumps({"error": f"Upload failed: {msg}"})
-
-        result = resp.json()
-        if not result.get("ok"):
-            errors = result.get("issues", {}).get("errors", [])
-            msg = errors[0].get("message") if errors else "Upload failed"
+        finalize = await _dashboard_request(
+            "POST",
+            "/api/data/upload/finalize",
+            api_key=resolved_key,
+            json_body={"key": presign["key"], "uploadToken": presign["uploadToken"]},
+            timeout=300.0,
+        )
+        if "error" in finalize:
+            return json.dumps(finalize)
+        if not finalize.get("ok"):
+            errors = finalize.get("issues", {}).get("errors", [])
+            msg = errors[0].get("message") if errors else "Finalize failed"
             return json.dumps({"error": msg})
 
         return json.dumps(
             {
-                "file": result["file"],
-                "columns": result.get("columns", []),
-                "rowCount": result.get("rowCount"),
+                "file": finalize["file"],
+                "columns": finalize.get("columns", []),
+                "rowCount": finalize.get("rowCount"),
             }
         )
 
