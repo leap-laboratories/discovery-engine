@@ -214,11 +214,12 @@ Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery
 
 | | Cost |
 |---|---|
-| Public runs | Free — results published, depth locked to 1 |
-| Private runs | 1 credit per MB per depth iteration ($1.00/credit) |
+| Public runs | Free — results and data are published|
+| Private runs | 1 credit per MB |
 | Free tier | 10 credits/month, no card required |
 | Researcher | $49/month — 50 credits |
 | Team | $199/month — 200 credits |
+| Purchase more credits at $1 per credit |
 
 Estimate before running:
 
