@@ -62,13 +62,15 @@ Add to your MCP config:
 
 ### MCP Workflow
 
-Analyses take 3-15 minutes. **Do not block** — submit, continue other work, poll for completion.
+Analyses take 3–15 minutes. **Do not block** — submit, continue other work, poll for completion.
 
 ```
 1. discovery_estimate     → Check cost/time (always do this for private runs)
 2. discovery_upload       → Upload the dataset, get file_ref
 3. discovery_analyze      → Submit for analysis using file_ref, get run_id
 4. discovery_status       → Poll until status is "completed"
+                            Returns: status, queue_position, current_step,
+                            estimated_seconds, estimated_wait_seconds
 5. discovery_get_results  → Fetch patterns, summary, feature importance
 ```
 
@@ -653,11 +655,16 @@ class EngineResult:
     feature_importance: FeatureImportance | None   # Global importance scores
     job_id: str | None                             # Job ID for tracking
     job_status: str | None                         # Job queue status
+    queue_position: int | None                     # Position in queue when pending (1 = next up)
+    current_step: str | None                       # Active pipeline step (preprocessing, training, interpreting, reporting)
+    current_step_message: str | None               # Human-readable description of the current step
+    estimated_seconds: int | None                  # Estimated total processing time in seconds
+    estimated_wait_seconds: int | None             # Estimated queue wait time in seconds (pending only)
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report
     hints: list[str]                               # Upgrade hints (non-empty for free-tier users with hidden patterns)
-    hidden_deep_count: int                         # Patterns hidden due to depth limit (free tier)
-    hidden_deep_novel_count: int                   # Novel patterns hidden due to depth limit
+    hidden_deep_count: int                         # Patterns hidden for free-tier accounts (upgrade to see all)
+    hidden_deep_novel_count: int                   # Novel patterns hidden for free-tier accounts
 
 @dataclass
 class Pattern:

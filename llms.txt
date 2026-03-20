@@ -56,7 +56,7 @@ for pattern in result.patterns:
     if pattern.p_value < 0.05 and pattern.novelty_type == "novel":
         print(f"{pattern.description} (p={pattern.p_value:.4f})")
 
-# Check hints for suggestions (e.g. deeper analysis available)
+# Check hints for suggestions (e.g. more patterns available — upgrade to see all)
 for hint in result.hints:
     print(hint)
 

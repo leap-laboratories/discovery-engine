@@ -55,7 +55,7 @@ await engine.discover(
 
 > **Tip:** Providing `column_descriptions` significantly improves pattern explanations. If your columns have non-obvious names, always describe them.
 
-> **Depth and visibility:** Public runs are always `depth_iterations=1` regardless of settings. To use `depth_iterations > 1`, set `visibility="private"`. Private runs consume credits based on file size × depth.
+> **Visibility:** `"public"` runs are free but results are published, and depth is locked to 1. `"private"` runs keep results confidential and consume credits.
 
 
 ## Examples
@@ -82,7 +82,19 @@ result = await engine.discover(
 
 ### Running in the Background
 
-Runs take 3–15 minutes. If you need to do other work while Discovery Engine runs:
+Runs take 3–15 minutes. While waiting, the SDK logs progress automatically:
+
+```
+Waiting for run abc123 to complete...
+  Status: waiting (position 2 in queue) | Est. wait: ~8 min | Upgrade at disco.leap-labs.com/account for priority processing
+  Status: processing (preprocessing — Processing data...) | Elapsed: 34.2s | ETA: ~6 min
+  Status: processing (training — Modelling data...) | Elapsed: 98.7s | ETA: ~4 min
+  Status: processing (interpreting — Extracting patterns...) | Elapsed: 284.1s | ETA: ~2 min
+  Status: processing (reporting — Building report...) | Elapsed: 412.3s | ETA: ~1 min
+Run completed in 467.8s
+```
+
+If you need to do other work while Discovery Engine runs:
 
 ```python
 import asyncio
@@ -234,11 +246,16 @@ class EngineResult:
     feature_importance: FeatureImportance | None   # Global importance scores
     job_id: str | None                             # Job ID for tracking
     job_status: str | None                         # Job queue status
+    queue_position: int | None                     # Position in queue when pending (1 = next up)
+    current_step: str | None                       # Active pipeline step (preprocessing, training, interpreting, reporting)
+    current_step_message: str | None               # Human-readable description of the current step
+    estimated_seconds: int | None                  # Estimated total processing time in seconds
+    estimated_wait_seconds: int | None             # Estimated queue wait time in seconds (pending only)
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report
     hints: list[str]                               # Upgrade hints (non-empty for free-tier users with hidden patterns)
-    hidden_deep_count: int                         # Patterns hidden due to depth limit (free tier)
-    hidden_deep_novel_count: int                   # Novel patterns hidden due to depth limit
+    hidden_deep_count: int                         # Patterns hidden for free-tier accounts (upgrade to see all)
+    hidden_deep_novel_count: int                   # Novel patterns hidden for free-tier accounts
 ```
 
 ### Pattern
@@ -376,7 +393,7 @@ except AuthenticationError as e:
     print(e.suggestion)  # "Check your API key at https://disco.leap-labs.com/developers"
 except InsufficientCreditsError as e:
     print(f"Need {e.credits_required}, have {e.credits_available}")
-    print(e.suggestion)  # "Run with visibility='public' (free, depth=1) or purchase credits with engine.purchase_credits()."
+    print(e.suggestion)  # "Run with visibility='public' (free, results published) or purchase credits with engine.purchase_credits()."
 except RateLimitError as e:
     print(f"Retry after {e.retry_after} seconds")
 except RunFailedError as e:
