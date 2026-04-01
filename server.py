@@ -78,9 +78,14 @@ mcp = FastMCP(
         "Not another AI data analyst. Disco is a discovery pipeline "
         "that finds novel, statistically validated patterns in tabular data — "
         "feature interactions, subgroup effects, and conditional relationships "
-        "you wouldn't think to look for."
+        "you wouldn't think to look for. "
+        "When displaying results, render interactive visualizations following "
+        "the Disco style guide at https://disco.leap-labs.com/visualization-spec"
     ),
     stateless_http=True,
+    # Pass OAuth provider for /authorize, /token, /register, /revoke endpoints.
+    # We do NOT set token_verifier — our DualAuthMiddleware handles bearer
+    # validation permissively (allows unauthenticated API key requests through).
     auth_server_provider=_oauth_provider,
     auth=_oauth_auth_settings,
     transport_security=TransportSecuritySettings(
@@ -120,7 +125,13 @@ async def _get_dashboard_client() -> httpx.AsyncClient:
 
 
 def _resolve_api_key(api_key: str | None) -> str | None:
-    """Resolve API key: OAuth bearer token first, then explicit param, then env var."""
+    """Resolve API key: OAuth bearer token first, then explicit param, then env var.
+
+    When a Claude.ai user connects via OAuth, their API key is embedded in
+    the bearer token. This function checks for it automatically so tool
+    functions don't need OAuth-specific logic.
+    """
+    # Check OAuth context (set by DualAuthMiddleware when bearer token is present)
     if _OAUTH_SECRET:
         from mcp.server.auth.middleware.auth_context import get_access_token
 
@@ -847,13 +858,20 @@ async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
 
 
 def create_app():
-    """Create the ASGI app with OAuth middleware if configured."""
+    """Create the ASGI app with OAuth middleware if configured.
+
+    Returns a Starlette app suitable for Modal's @modal.asgi_app().
+    When MCP_OAUTH_SECRET is set, wraps the app with DualAuthMiddleware
+    for bearer token validation. Otherwise returns the plain MCP app.
+    """
     starlette_app = mcp.streamable_http_app()
 
     if _oauth_provider:
         from .auth import DualAuthMiddleware
 
+        # Store provider on the Starlette app so the callback route can access it
         starlette_app.state.oauth_provider = _oauth_provider
+        # Wrap with middleware that validates bearer tokens permissively
         return DualAuthMiddleware(starlette_app, _oauth_provider)
 
     return starlette_app
