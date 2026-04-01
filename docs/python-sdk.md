@@ -218,6 +218,17 @@ estimate = await engine.estimate(
 Manage credits and plans at [disco.leap-labs.com/account](https://disco.leap-labs.com/account).
 
 
+## Expected Data Format
+
+Disco expects a **flat table** — columns for features, rows for samples.
+
+- **One row per observation** — a patient, a sample, a transaction, a measurement, etc.
+- **One column per feature** — numeric, categorical, datetime, or free text are all fine
+- **One target column** — the outcome to analyze. Must have at least 2 distinct values.
+- **Missing values are OK** — Disco handles them automatically. Don't drop rows or impute beforehand.
+
+Not supported: images, raw text documents, nested/hierarchical JSON, multi-sheet Excel (use the first sheet or export to CSV).
+
 ## File Size Limits
 
 Uploads up to **5 GB**. Files are uploaded directly to cloud storage using presigned URLs.

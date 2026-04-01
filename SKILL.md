@@ -812,9 +812,18 @@ except TimeoutError:
 
 All errors inherit from `DiscoveryError` and include a `suggestion` field with actionable instructions.
 
-## Supported Formats
+## Expected Data Format
 
-CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 5 GB.
+Disco expects a **flat table** — columns for features, rows for samples.
+
+- **One row per observation** — a patient, a sample, a transaction, a measurement, etc.
+- **One column per feature** — numeric, categorical, datetime, or free text are all fine
+- **One target column** — the outcome to analyze. Must have at least 2 distinct values.
+- **Missing values are OK** — Disco handles them automatically. Don't drop rows or impute beforehand.
+
+Supported formats: CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
+
+Not supported: images, raw text documents, nested/hierarchical JSON, multi-sheet Excel (use the first sheet or export to CSV).
 
 ## Links
 

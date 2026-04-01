@@ -245,6 +245,30 @@ estimate = await engine.estimate(file_size_mb=10.5, num_columns=25, depth_iterat
 
 ---
 
+## Expected data format
+
+Disco expects a **flat table** — columns for features, rows for samples.
+
+```
+| patient_id | age | bmi  | smoker | outcome |
+|------------|-----|------|--------|---------|
+| 001        | 52  | 28.3 | yes    | 1       |
+| 002        | 34  | 22.1 | no     | 0       |
+| ...        | ... | ...  | ...    | ...     |
+```
+
+- **One row per observation** — a patient, a sample, a transaction, a measurement, etc.
+- **One column per feature** — numeric, categorical, datetime, or free text are all fine
+- **One target column** — the outcome you want to understand. Must have at least 2 distinct values.
+- **Missing values are OK** — Disco handles them automatically. Don't drop rows or impute beforehand.
+- **No pivoting needed** — if your data is already in a flat table, it's ready to go
+
+**Supported formats:** CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
+
+**Not supported:** images, raw text documents, nested/hierarchical JSON, multi-sheet Excel (use the first sheet or export to CSV)
+
+---
+
 ## Links
 
 - [Dashboard](https://disco.leap-labs.com)
