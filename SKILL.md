@@ -825,10 +825,31 @@ Supported formats: CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 
 
 Not supported: images, raw text documents, nested/hierarchical JSON, multi-sheet Excel (use the first sheet or export to CSV).
 
+## Displaying Results
+
+When presenting Disco results, render interactive visualizations -- don't just dump text. Default order (adapt based on what the user asked):
+
+1. **Summary** -- show `summary.overview` and `summary.key_insights`. Links to `dashboard_urls.summary.url`.
+
+2. **Pattern plots** -- for the top patterns, render a violin plot: one violin per condition, one for all conditions combined, one for the overall dataset. Y-axis is the target variable. Shows how each condition narrows the distribution. Links to `dashboard_urls.patterns.url`.
+
+3. **Territory map** -- 3D surface where X and Y axes are two features from a pattern's conditions, Z axis is the target. Shows the interaction landscape. Best when patterns involve feature interactions. Links to `dashboard_urls.territory.url`.
+
+4. **Feature importance** -- horizontal waterfall bars floating from zero, sorted by absolute contribution. Links to `dashboard_urls.features.url`.
+
+5. **Correlation heatmap** -- square matrix of feature correlations, sorted by correlation with target. Links to `dashboard_urls.features.url`.
+
+Use judgment: if the user asked "what drives X?", lead with feature importance. If they asked "find something new", lead with novel patterns. If they're exploring interactions, lead with territory.
+
+For exact colors, scales, and layout details, follow the full visualization spec: **https://disco.leap-labs.com/visualization-spec**
+
+Always link to the relevant `dashboard_urls` page so users can explore the full interactive version.
+
 ## Links
 
 - [Dashboard & API Keys](https://disco.leap-labs.com/developers)
 - [Full LLM Documentation](https://disco.leap-labs.com/llms-full.txt)
+- [Visualization Spec](https://disco.leap-labs.com/visualization-spec)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
 - [API Spec](https://disco.leap-labs.com/.well-known/openapi.json)
 
