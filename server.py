@@ -656,7 +656,15 @@ async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
 
     Returns discovered patterns (with conditions, p-values, novelty scores,
     citations), feature importance scores, a summary with key insights, column
-    statistics, a shareable report URL, and suggestions for what to explore next.
+    statistics, and suggestions for what to explore next.
+
+    The response includes a `dashboard_urls` object with direct links to each
+    page of the interactive report — use these to direct the user to the most
+    relevant view:
+    - **summary**: AI-generated overview with key insights, novel findings, and plain-language explanation of the most important findings
+    - **patterns**: Full list of discovered patterns with conditions, effect sizes, p-values, novelty scores, citations, and interactive visualisations
+    - **features**: Feature importances, feature statistics and distribution plots, and correlation matrix
+    - **territory**: Interactive 3D map showing how patterns select different regions of the data
 
     Only call this after discovery_status returns "completed".
 
