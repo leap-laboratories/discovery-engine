@@ -163,7 +163,7 @@ Before running, exclude columns that would produce meaningless findings. Disco f
 await engine.discover(
     file="data.csv",           # path, Path, or pd.DataFrame
     target_column="outcome",   # column to predict/explain
-    depth_iterations=2,        # 2=default, higher=deeper (max: num_columns − 2)
+    analysis_depth=2,          # 2=default, higher=deeper (max: num_columns − 2)
     visibility="public",       # "public" (free) or "private" (costs credits)
     column_descriptions={      # improves pattern explanations and literature context
         "bmi": "Body mass index",
@@ -237,7 +237,7 @@ Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery
 Estimate before running:
 
 ```python
-estimate = await engine.estimate(file_size_mb=10.5, num_columns=25, depth_iterations=2, visibility="private")
+estimate = await engine.estimate(file_size_mb=10.5, num_columns=25, analysis_depth=2, visibility="private")
 # estimate["cost"]["credits"] → 21
 # estimate["cost"]["free_alternative"] → True
 # estimate["account"]["sufficient"] → True/False

@@ -49,7 +49,7 @@ result = await engine.discover(
     file="data.csv",               # str | Path | pd.DataFrame
     target_column="outcome",       # column to analyze
     visibility="public",           # "public" (free) | "private" (credits)
-    depth_iterations=2,            # higher = deeper analysis
+    analysis_depth=2,              # higher = deeper analysis
 )
 
 for pattern in result.patterns:
@@ -94,7 +94,7 @@ Estimate before running:
 estimate = await engine.estimate(
     file_size_mb=10.5,
     num_columns=25,
-    depth_iterations=2,
+    analysis_depth=2,
     visibility="private",
 )
 # estimate["cost"]["credits"]              → 21

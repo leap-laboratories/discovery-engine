@@ -192,7 +192,7 @@ Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (li
 **`discovery_analyze`:**
 - `file_ref` — File reference returned by `discovery_upload`. Required.
 - `target_column` — The column to predict/explain
-- `depth_iterations` — 2 = default, higher = deeper analysis. Max: num_columns - 2
+- `analysis_depth` — 2 = default, higher = deeper analysis. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
 - `column_descriptions` — JSON object mapping column names to descriptions. Significantly improves pattern explanations — always provide if column names are non-obvious
 - `excluded_columns` — JSON array of column names to exclude from analysis (see **Preparing Your Data** below)
@@ -541,7 +541,7 @@ Key things to notice:
 engine.discover(
     file: str | Path | pd.DataFrame,  # Dataset to analyze
     target_column: str,                 # Column to predict/analyze
-    depth_iterations: int = 2,          # 2=default, higher=deeper analysis (max: num_columns - 2)
+    analysis_depth: int = 2,            # 2=default, higher=deeper analysis (max: num_columns - 2)
     visibility: str = "public",         # "public" (free, results will be published) or "private" (costs credits)
     title: str | None = None,           # Dataset title
     description: str | None = None,     # Dataset description
@@ -656,7 +656,7 @@ estimate = await engine.estimate(
     file_size_mb=10.5,
     num_columns=25,
     num_rows=5000,                # Optional — improves time estimate accuracy
-    depth_iterations=2,
+    analysis_depth=2,
     visibility="private",
 )
 # estimate["cost"]["credits"] → 11

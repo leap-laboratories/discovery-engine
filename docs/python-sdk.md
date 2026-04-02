@@ -41,7 +41,7 @@ Get your API key from the [Developers page](https://disco.leap-labs.com/develope
 await engine.discover(
     file: str | Path | pd.DataFrame,  # Dataset to analyze
     target_column: str,                 # Column to predict/analyze
-    depth_iterations: int = 2,          # 2=default, higher=deeper analysis
+    analysis_depth: int = 2,            # 2=default, higher=deeper analysis
     visibility: str = "public",         # "public" (free) or "private" (credits)
     title: str | None = None,           # Dataset title
     description: str | None = None,     # Dataset description
@@ -203,7 +203,7 @@ print(f"Explore: {result.report_url}")
 estimate = await engine.estimate(
     file_size_mb=10.5,
     num_columns=25,
-    depth_iterations=2,
+    analysis_depth=2,
     visibility="private",
 )
 # estimate["cost"]["credits"]               -> 11
@@ -212,7 +212,7 @@ estimate = await engine.estimate(
 # estimate["cost"]["free_alternative_note"] -> "Run publicly for free (depth locked to 2, results published)"
 # estimate["time_estimate"]["estimated_seconds"] -> 360
 # estimate["account"]["sufficient"]         -> True/False
-# estimate["limits"]["max_depth"]           -> 23  (num_columns - 2)
+# estimate["limits"]["max_analysis_depth"]  -> 23  (num_columns - 2)
 ```
 
 Manage credits and plans at [disco.leap-labs.com/account](https://disco.leap-labs.com/account).
