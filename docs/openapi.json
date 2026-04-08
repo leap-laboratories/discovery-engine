@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "Disco API",
-        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is tested on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n**For agents:** Use `POST /v1/estimate` to check cost before running, `POST /v1/api-keys` to create an API key, and `GET /v1/runs/{run_id}/results` to fetch analysis results.\n\n**Authentication:** Clerk session tokens or `disco_` API keys via `Authorization: Bearer <token>` header.\n\n**SDK:** `pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
+        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is tested on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n**For agents:** Use `POST /api/estimate` to check cost, `POST /api/signup` to create an account, `POST /api/data/upload/presign` + `POST /api/data/upload/finalize` to upload data, `POST /api/reports/create-from-upload` to start an analysis, and `GET /api/runs/{run_id}/results` to fetch results.\n\n**Authentication:** Clerk session tokens or `disco_` API keys via `Authorization: Bearer <token>` header.\n\n**SDK:** `pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
         "version": "1.0.0"
     },
     "servers": [
@@ -11,7 +11,7 @@
         }
     ],
     "paths": {
-        "/v1/runs/{run_id}/results": {
+        "/api/runs/{run_id}/results": {
             "get": {
                 "tags": [
                     "results"
@@ -57,7 +57,7 @@
                 }
             }
         },
-        "/v1/api-keys": {
+        "/api/api-keys": {
             "get": {
                 "tags": [
                     "api-keys"
@@ -87,7 +87,7 @@
                     "api-keys"
                 ],
                 "summary": "Create API key",
-                "description": "Create a new API key. For first-time users, also provisions org and free-tier subscription. Key returned only once \u2014 store securely. For signup without auth, use POST /v1/signup.",
+                "description": "Create a new API key. For first-time users, also provisions org and free-tier subscription. Key returned only once \u2014 store securely. For signup without auth, use POST /api/signup.",
                 "operationId": "create_api_key_v1_api_keys_post",
                 "requestBody": {
                     "content": {
@@ -123,7 +123,7 @@
                 }
             }
         },
-        "/v1/api-keys/{key_id}": {
+        "/api/api-keys/{key_id}": {
             "delete": {
                 "tags": [
                     "api-keys"
@@ -162,7 +162,7 @@
                 }
             }
         },
-        "/v1/columns/recommend-exclusions": {
+        "/api/columns/recommend-exclusions": {
             "post": {
                 "tags": [
                     "columns"
@@ -204,7 +204,7 @@
                 }
             }
         },
-        "/v1/me": {
+        "/api/me": {
             "get": {
                 "tags": [
                     "me"
@@ -224,7 +224,7 @@
                 }
             }
         },
-        "/v1/me/organizations": {
+        "/api/me/organizations": {
             "get": {
                 "tags": [
                     "me"
@@ -244,7 +244,7 @@
                 }
             }
         },
-        "/v1/me/runs": {
+        "/api/me/runs": {
             "get": {
                 "tags": [
                     "me"
@@ -264,7 +264,7 @@
                 }
             }
         },
-        "/v1/plans": {
+        "/api/plans": {
             "get": {
                 "tags": [
                     "plans"
@@ -286,7 +286,7 @@
                 }
             }
         },
-        "/v1/estimate": {
+        "/api/estimate": {
             "post": {
                 "tags": [
                     "estimate"
@@ -328,7 +328,7 @@
                 }
             }
         },
-        "/v1/account": {
+        "/api/account": {
             "get": {
                 "tags": [
                     "account"
@@ -350,13 +350,13 @@
                 }
             }
         },
-        "/v1/account/payment-method": {
+        "/api/account/payment-method": {
             "post": {
                 "tags": [
                     "account"
                 ],
                 "summary": "Attach a payment method",
-                "description": "Attach a Stripe payment method to your account. The payment method must be tokenized via Stripe's API first (using the `stripe_publishable_key` from `POST /v1/api-keys` or `GET /v1/account`) \u2014 card details never touch Disco. Required before purchasing credits or subscribing to a paid plan.",
+                "description": "Attach a Stripe payment method to your account. The payment method must be tokenized via Stripe's API first (using the `stripe_publishable_key` from `POST /api/api-keys` or `GET /api/account`) \u2014 card details never touch Disco. Required before purchasing credits or subscribing to a paid plan.",
                 "operationId": "attach_payment_method_v1_account_payment_method_post",
                 "requestBody": {
                     "content": {
@@ -392,13 +392,13 @@
                 }
             }
         },
-        "/v1/account/credits/purchase": {
+        "/api/account/credits/purchase": {
             "post": {
                 "tags": [
                     "account"
                 ],
                 "summary": "Purchase credit packs",
-                "description": "Purchase Disco credits using a stored payment method. Credits cost $1.00 each, sold in packs of 20 ($20/pack). Requires a payment method on file (attach one via `POST /v1/account/payment-method`). Returns 402 if no payment method is attached.",
+                "description": "Purchase Disco credits using a stored payment method. Credits cost $1.00 each, sold in packs of 20 ($20/pack). Requires a payment method on file (attach one via `POST /api/account/payment-method`). Returns 402 if no payment method is attached.",
                 "operationId": "purchase_credits_v1_account_credits_purchase_post",
                 "requestBody": {
                     "content": {
@@ -434,13 +434,13 @@
                 }
             }
         },
-        "/v1/account/subscribe": {
+        "/api/account/subscribe": {
             "post": {
                 "tags": [
                     "account"
                 ],
                 "summary": "Subscribe to or change plan",
-                "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 50 credits/mo), Team ($199, 200 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /v1/plans` to see all plan details.",
+                "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 50 credits/mo), Team ($199, 200 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /api/plans` to see all plan details.",
                 "operationId": "subscribe_v1_account_subscribe_post",
                 "requestBody": {
                     "content": {
@@ -476,13 +476,13 @@
                 }
             }
         },
-        "/v1/signup": {
+        "/api/signup": {
             "post": {
                 "tags": [
                     "signup"
                 ],
                 "summary": "Initiate account creation",
-                "description": "Zero-touch signup. Sends a 6-digit code to the email. Follow up with POST /v1/signup/verify to get an API key. Returns 409 if already registered.",
+                "description": "Zero-touch signup. Sends a 6-digit code to the email. Follow up with POST /api/signup/verify to get an API key. Returns 409 if already registered.",
                 "operationId": "signup_v1_signup_post",
                 "requestBody": {
                     "content": {
@@ -516,7 +516,7 @@
                 }
             }
         },
-        "/v1/signup/verify": {
+        "/api/signup/verify": {
             "post": {
                 "tags": [
                     "signup"
@@ -551,6 +551,321 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/data/upload/presign": {
+            "post": {
+                "tags": ["upload"],
+                "summary": "Get presigned upload URL",
+                "description": "Returns a presigned URL for uploading a file directly to storage. Use the returned uploadUrl to PUT your file, then call /api/data/upload/finalize.",
+                "operationId": "presign_upload",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["fileName", "contentType", "fileSize"],
+                                "properties": {
+                                    "fileName": {"type": "string", "description": "Name of the file"},
+                                    "contentType": {"type": "string", "description": "MIME type of the file (e.g. text/csv)"},
+                                    "fileSize": {"type": "integer", "description": "File size in bytes"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Presigned upload URL and token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "uploadUrl": {"type": "string", "description": "PUT your file to this URL"},
+                                        "key": {"type": "string", "description": "Storage key"},
+                                        "bucket": {"type": "string"},
+                                        "expiresIn": {"type": "integer", "description": "URL expiry in seconds"},
+                                        "uploadToken": {"type": "string", "description": "JWT token — pass to /api/data/upload/finalize"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [{"BearerAuth": []}]
+            }
+        },
+        "/api/data/upload/finalize": {
+            "post": {
+                "tags": ["upload"],
+                "summary": "Finalize file upload",
+                "description": "After uploading to the presigned URL, call this to process the file. Returns columns and metadata needed for /api/reports/create-from-upload.",
+                "operationId": "finalize_upload",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["key", "uploadToken"],
+                                "properties": {
+                                    "key": {"type": "string", "description": "Storage key from presign response"},
+                                    "uploadToken": {"type": "string", "description": "JWT token from presign response"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Processed file metadata and columns",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ok": {"type": "boolean"},
+                                        "file": {
+                                            "type": "object",
+                                            "properties": {
+                                                "key": {"type": "string"},
+                                                "name": {"type": "string"},
+                                                "size": {"type": "integer"},
+                                                "fileHash": {"type": "string"}
+                                            }
+                                        },
+                                        "columns": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "name": {"type": "string"},
+                                                    "type": {"type": "string"},
+                                                    "enabled": {"type": "boolean"},
+                                                    "description": {"type": "string", "nullable": true}
+                                                }
+                                            }
+                                        },
+                                        "rowCount": {"type": "integer"},
+                                        "issues": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [{"BearerAuth": []}]
+            }
+        },
+        "/api/data/upload/from-url": {
+            "post": {
+                "tags": ["upload"],
+                "summary": "Upload from URL",
+                "description": "Download a file from a URL and process it. Combines presign + upload + finalize in one step. Returns columns and metadata for /api/reports/create-from-upload.",
+                "operationId": "upload_from_url",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["url"],
+                                "properties": {
+                                    "url": {"type": "string", "format": "uri", "description": "Public URL of the dataset to download"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Processed file metadata and columns",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ok": {"type": "boolean"},
+                                        "file": {
+                                            "type": "object",
+                                            "properties": {
+                                                "key": {"type": "string"},
+                                                "name": {"type": "string"},
+                                                "size": {"type": "integer"},
+                                                "fileHash": {"type": "string"}
+                                            }
+                                        },
+                                        "columns": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "name": {"type": "string"},
+                                                    "type": {"type": "string"},
+                                                    "enabled": {"type": "boolean"},
+                                                    "description": {"type": "string", "nullable": true}
+                                                }
+                                            }
+                                        },
+                                        "rowCount": {"type": "integer"},
+                                        "issues": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [{"BearerAuth": []}]
+            }
+        },
+        "/api/reports/create-from-upload": {
+            "post": {
+                "tags": ["discover"],
+                "summary": "Start a discovery analysis",
+                "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results. Runs take 3-15 minutes.",
+                "operationId": "create_analysis",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["file", "columns", "targetColumn"],
+                                "properties": {
+                                    "file": {
+                                        "type": "object",
+                                        "required": ["key", "name", "size", "fileHash"],
+                                        "description": "File metadata from upload/finalize or upload/from-url",
+                                        "properties": {
+                                            "key": {"type": "string"},
+                                            "name": {"type": "string"},
+                                            "size": {"type": "integer"},
+                                            "fileHash": {"type": "string"}
+                                        }
+                                    },
+                                    "columns": {
+                                        "type": "array",
+                                        "description": "Column metadata from upload/finalize or upload/from-url",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {"type": "string"},
+                                                "type": {"type": "string"},
+                                                "enabled": {"type": "boolean"},
+                                                "description": {"type": "string", "nullable": true}
+                                            }
+                                        }
+                                    },
+                                    "targetColumn": {"type": "string", "description": "Name of the column to predict/explain"},
+                                    "analysisDepth": {"type": "integer", "default": 2, "description": "Higher = deeper analysis, more credits"},
+                                    "isPublic": {"type": "boolean", "default": true, "description": "Public runs are free but results are published"},
+                                    "title": {"type": "string", "nullable": true},
+                                    "description": {"type": "string", "nullable": true},
+                                    "useLlms": {"type": "boolean", "default": false, "description": "Enable LLM summaries, literature context, novelty assessment. Slower and more expensive. Public runs always use LLMs."}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Analysis submitted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "run_id": {"type": "string", "description": "Poll GET /api/runs/{run_id}/results until status is completed"},
+                                        "status": {"type": "string", "enum": ["pending"]}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [{"BearerAuth": []}]
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": ["auth"],
+                "summary": "Login to existing account",
+                "description": "Send a verification code to an existing account's email. Follow up with POST /api/login/verify to get an API key.",
+                "operationId": "login",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email"],
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Verification code sent",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {"type": "string", "enum": ["verification_required"]},
+                                        "email": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {"description": "No account found for this email"}
+                }
+            }
+        },
+        "/api/login/verify": {
+            "post": {
+                "tags": ["auth"],
+                "summary": "Complete login with verification code",
+                "description": "Submit the code sent to email. Returns a new API key. Codes expire after 15 minutes.",
+                "operationId": "login_verify",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email", "code"],
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"},
+                                    "code": {"type": "string", "description": "6-digit verification code from email"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful — API key returned",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "key": {"type": "string", "description": "API key (disco_...) — store securely"},
+                                        "key_id": {"type": "string"},
+                                        "organization_id": {"type": "string"},
+                                        "tier": {"type": "string"}
+                                    }
                                 }
                             }
                         }
