@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "Disco API",
-        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is tested on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n**For agents:** Use `POST /api/estimate` to check cost, `POST /api/signup` to create an account, `POST /api/data/upload/presign` + `POST /api/data/upload/finalize` to upload data, `POST /api/reports/create-from-upload` to start an analysis, and `GET /api/runs/{run_id}/results` to fetch results.\n\n**Authentication:** Clerk session tokens or `disco_` API keys via `Authorization: Bearer <token>` header.\n\n**SDK:** `pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
+        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is validated on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n## Agent workflow\n\n**Step 1 — Get an API key** (once):\n- `POST /api/signup` with `{\"email\": \"...\"}` → sends a 6-digit code\n- `POST /api/signup/verify` with `{\"email\": \"...\", \"code\": \"...\"}` → returns `{\"key\": \"disco_...\"}`\n- Use this key as `Authorization: Bearer disco_...` for all subsequent requests\n\n**Step 2 — Estimate cost** (optional but recommended):\n- `POST /api/estimate` with file size, column count, depth, visibility\n- Returns credit cost and time estimate\n\n**Step 3 — Upload data** (pick one):\n- *From URL:* `POST /api/data/upload/from-url` with `{\"url\": \"https://...\"}` → returns `file` and `columns`\n- *From file:* `POST /api/data/upload/presign` → PUT file to `uploadUrl` → `POST /api/data/upload/finalize` → returns `file` and `columns`\n\n**Step 4 — Run analysis:**\n- `POST /api/reports/create-from-upload` with `file`, `columns`, and `targetColumn` from step 3 → returns `{\"run_id\": \"...\"}`\n\n**Step 5 — Poll for results:**\n- `GET /api/runs/{run_id}/results` — poll every 10s until `status` is `\"completed\"` (typically 3–15 min)\n- Response includes `patterns[]` with conditions, p-values, effect sizes, novelty scores, and citations\n\n## Billing\n\nPublic runs are free. If the user needs more credits or a paid plan, send them to https://disco.leap-labs.com/account to upgrade — don't try to handle payment details.\n\n## Authentication\n\n`disco_` API keys via `Authorization: Bearer disco_...` header. Get a key via signup or at https://disco.leap-labs.com/developers.\n\n## SDK\n\n`pip install discovery-engine-api` — [Full docs](https://disco.leap-labs.com/llms-full.txt)",
         "version": "1.0.0"
     },
     "servers": [
@@ -76,46 +76,6 @@
                                     },
                                     "type": "array",
                                     "title": "Response List Api Keys V1 Api Keys Get"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "api-keys"
-                ],
-                "summary": "Create API key",
-                "description": "Create a new API key. For first-time users, also provisions org and free-tier subscription. Key returned only once \u2014 store securely. For signup without auth, use POST /api/signup.",
-                "operationId": "create_api_key_v1_api_keys_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/CreateApiKeyRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "201": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/CreateApiKeyResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
                                 }
                             }
                         }
@@ -343,48 +303,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/AccountResponse"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/account/payment-method": {
-            "post": {
-                "tags": [
-                    "account"
-                ],
-                "summary": "Attach a payment method",
-                "description": "Attach a Stripe payment method to your account. The payment method must be tokenized via Stripe's API first (using the `stripe_publishable_key` from `POST /api/api-keys` or `GET /api/account`) \u2014 card details never touch Disco. Required before purchasing credits or subscribing to a paid plan.",
-                "operationId": "attach_payment_method_v1_account_payment_method_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AttachPaymentMethodRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/AttachPaymentMethodResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
                                 }
                             }
                         }
