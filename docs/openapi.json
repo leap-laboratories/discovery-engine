@@ -17,7 +17,7 @@
                     "results"
                 ],
                 "summary": "Get complete analysis results",
-                "description": "Returns the complete analysis results for a run, including all discovered patterns with conditions, p-values, novelty scores, and citations. Also includes LLM-generated summary, column statistics, correlation matrix, and feature importance.\n\nIf the run is still processing, `status` will be `\"processing\"` and result fields will be empty arrays. Poll this endpoint until `status` is `\"completed\"` (typically 3-15 minutes).\n\nIf the run failed, `status` will be `\"failed\"` and `error_message` will explain why.",
+                "description": "Returns analysis results including patterns, p-values, novelty scores, and citations. Poll until status is \"completed\" (3-15 min). If \"failed\", check error_message.",
                 "operationId": "get_results_v1_runs__run_id__results_get",
                 "parameters": [
                     {
@@ -87,7 +87,7 @@
                     "api-keys"
                 ],
                 "summary": "Create API key",
-                "description": "Create a new API key for an existing authenticated user. For first-time users, this also provisions a personal organization, Stripe customer, and free-tier subscription (idempotent \u2014 safe to call multiple times). The `key` field is returned only once \u2014 store it securely. For zero-touch agent signup (no auth required), use POST /v1/signup instead.",
+                "description": "Create a new API key. For first-time users, also provisions org and free-tier subscription. Key returned only once \u2014 store securely. For signup without auth, use POST /v1/signup.",
                 "operationId": "create_api_key_v1_api_keys_post",
                 "requestBody": {
                     "content": {
@@ -292,7 +292,7 @@
                     "estimate"
                 ],
                 "summary": "Estimate cost and time for an analysis",
-                "description": "Estimate the credit cost, time, and feasibility of a Disco analysis before committing. Always call this before running a private analysis. Returns credit cost, estimated duration, format limits, and (if authenticated) whether you have sufficient credits. Authentication is optional \u2014 unauthenticated requests omit the `account` field.",
+                "description": "Estimate credit cost and duration before running an analysis. Returns cost, time estimate, and (if authenticated) whether you have sufficient credits. No auth required.",
                 "operationId": "estimate_v1_estimate_post",
                 "requestBody": {
                     "content": {
@@ -482,7 +482,7 @@
                     "signup"
                 ],
                 "summary": "Initiate account creation",
-                "description": "Zero-touch signup for agents. Validates the email address and sends a 6-digit verification code. Follow up with POST /v1/signup/verify to complete signup and receive an API key.\n\nIf the email service is unavailable, falls back to direct provisioning and returns the API key immediately (same as a 201 response from /v1/signup/verify).\n\nReturns 409 if the email is already registered.",
+                "description": "Zero-touch signup. Sends a 6-digit code to the email. Follow up with POST /v1/signup/verify to get an API key. Returns 409 if already registered.",
                 "operationId": "signup_v1_signup_post",
                 "requestBody": {
                     "content": {
