@@ -50,6 +50,7 @@ result = await engine.discover(
     target_column="outcome",       # column to analyze
     visibility="public",           # "public" (free) | "private" (credits)
     analysis_depth=2,              # higher = deeper analysis
+    use_llms=True,                 # False = skip all LLM calls (faster and cheaper, see python-sdk docs)
 )
 
 for pattern in result.patterns:
@@ -83,10 +84,10 @@ Agent skill file: https://github.com/leap-laboratories/discovery-engine/blob/mai
 ## Pricing
 
 - Public runs: Free (results published, depth locked to 2)
-- Private runs: Credits scale with file size and depth ($1.00/credit). Use estimate endpoint to check cost.
-- Free tier: 10 credits/month
-- Researcher: $49/month, 50 credits
-- Team: $199/month, 200 credits
+- Private runs: $0.10/credit. Number of credits required increases with file size, analysis depth, and whether LLM explanations are turned on. Use estimate endpoint to check cost.
+- Free tier: 10 free credits/month
+- Researcher: $49/month, 50 free credits/month + deeper analysis
+- Team: $199/month, 200 free credits/month + deeper analysis
 
 Estimate before running:
 
@@ -98,7 +99,6 @@ estimate = await engine.estimate(
     visibility="private",
 )
 # estimate["cost"]["credits"]              → 21
-# estimate["cost"]["free_alternative"]     → True
 # estimate["account"]["sufficient"]        → True/False
 ```
 

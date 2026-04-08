@@ -54,6 +54,8 @@ Add to your MCP config:
 |------|---------|
 | `discovery_signup` | Start account creation — sends verification code to email. |
 | `discovery_signup_verify` | Complete signup by submitting the verification code. Returns API key. |
+| `discovery_login` | Get a new API key for an existing account — sends verification code to email. |
+| `discovery_login_verify` | Complete login by submitting the verification code. Returns a new API key. |
 | `discovery_account` | Check credits, plan, and usage. |
 | `discovery_list_plans` | View available plans and pricing. |
 | `discovery_subscribe` | Subscribe to or change plan. |
@@ -198,12 +200,15 @@ Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (li
 - `excluded_columns` — JSON array of column names to exclude from analysis (see **Preparing Your Data** below)
 - `title` — Optional title for the analysis
 - `description` — Optional description of the dataset
+- `use_llms` — `true` (default) or `false`. When false, skips all LLM calls — returns only structured statistical results (conditions, p-values, effect sizes, feature importances). Faster. Use this when your own LLM will explain the findings. Tradeoffs: pattern descriptions are generic, novelty is not assessed (no citations), report summaries are omitted, ambiguous integer columns (e.g. "month" 1-12) may be misclassified as categorical, and text cluster names are generic.
 - `author` — Optional author name for the dataset
 - `source_url` — Optional URL of the original data source
 
 ### No API key?
 
-Call `discovery_signup` with the user's email. This sends a verification code — the user must check their email. Then call `discovery_signup_verify` with the code to receive a `disco_` API key. Free tier: 10 credits/month, unlimited public runs. No password, no credit card.
+**New account:** Call `discovery_signup` with the user's email. This sends a verification code — the user must check their email. Then call `discovery_signup_verify` with the code to receive a `disco_` API key. Free tier: 10 credits/month, unlimited public runs. No password, no credit card.
+
+**Existing account (lost key or new session):** Call `discovery_login` with the user's email. Same OTP flow — sends a code, then call `discovery_login_verify` to get a new API key.
 
 ### Insufficient credits?
 
@@ -286,6 +291,12 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 # → {"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}
 ```
 
+
+**Existing account (lost key or new session):** Same OTP flow via `/api/login` and `/api/login/verify`, or in the SDK:
+
+```python
+engine = await Engine.login(email="agent@example.com")
+```
 
 **Manual (for humans):** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/developers.
 
@@ -533,7 +544,7 @@ Key things to notice:
 - **Novel vs confirmatory**: each pattern is classified and explained — novel findings are what you came for, confirmatory ones validate known science
 - **Citations** show what IS known, so you can see what's genuinely new
 - **Summary** gives the agent a narrative to present to the user immediately
-- **`report_url`** links to an interactive web report — drop this in your response so the user can explore visually
+- **`report_url`** links to an interactive web report — drop this in your response so the user can explore visually. **Private runs require sign-in** — tell the user to sign in at the dashboard using the same email address the account was created with (email verification code, no password needed). Public runs are accessible to anyone.
 
 ## Parameters
 
@@ -556,7 +567,7 @@ engine.discover(
 ## Cost
 
 - **Public runs**: Free. Results published to public gallery. Locked to depth=2.
-- **Private runs**: Credits scale with file size and depth. $1.00 per credit. Use `discovery_estimate` to check cost before running.
+- **Private runs**: Credits scale with file size and depth. 5x multiplier with LLM explanations (default). $0.10 per credit. Use `discovery_estimate` to check cost before running.
 - API keys: https://disco.leap-labs.com/developers
 - Credits: https://disco.leap-labs.com/account
 
@@ -619,11 +630,11 @@ curl -X POST https://disco.leap-labs.com/api/account/payment-method \
 
 **Step 4 — Purchase credits**
 
-Credits are sold in packs of 20 ($20/pack, $1.00/credit).
+Credits are sold in packs of 100 ($10/pack, $0.10/credit).
 
 ```python
 result = await engine.purchase_credits(packs=1)
-# → {"purchased_credits": 20, "total_credits": 30, "charge_amount_usd": 20.0, "stripe_payment_id": "pi_..."}
+# → {"purchased_credits": 100, "total_credits": 110, "charge_amount_usd": 10.0, "stripe_payment_id": "pi_..."}
 ```
 
 Or via REST:
@@ -659,8 +670,7 @@ estimate = await engine.estimate(
     analysis_depth=2,
     visibility="private",
 )
-# estimate["cost"]["credits"] → 11
-# estimate["cost"]["free_alternative"] → True (run publicly for free at depth=2)
+# estimate["cost"]["credits"] → 55
 # estimate["time_estimate"]["estimated_seconds"] → 360
 # estimate["account"]["sufficient"] → True/False
 ```

@@ -163,13 +163,14 @@ Before running, exclude columns that would produce meaningless findings. Disco f
 await engine.discover(
     file="data.csv",           # path, Path, or pd.DataFrame
     target_column="outcome",   # column to predict/explain
-    analysis_depth=2,          # 2=default, higher=deeper (max: num_columns − 2)
-    visibility="public",       # "public" (free) or "private" (costs credits)
+    analysis_depth=2,          # 2=default, higher=deeper analysis, lower = faster and cheaper
+    visibility="public",       # "public" (always free, data and report is published) or "private" (costs credits)
     column_descriptions={      # improves pattern explanations and literature context
         "bmi": "Body mass index",
         "hdl": "HDL cholesterol in mg/dL",
     },
     excluded_columns=["id", "timestamp"],  # see "Preparing your data" above
+    use_llms=True,                         # False = skip all LLM calls (faster and cheaper) — see docs
     title="My dataset",
     description="...", # improves pattern explanations and literature context
 )
@@ -232,14 +233,13 @@ Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery
 | Free tier | 10 credits/month, no card required |
 | Researcher | $49/month — 50 credits |
 | Team | $199/month — 200 credits |
-| Purchase more credits at $1 per credit |
+| Purchase more credits at $0.10 per credit |
 
 Estimate before running:
 
 ```python
 estimate = await engine.estimate(file_size_mb=10.5, num_columns=25, analysis_depth=2, visibility="private")
-# estimate["cost"]["credits"] → 21
-# estimate["cost"]["free_alternative"] → True
+# estimate["cost"]["credits"] → 55
 # estimate["account"]["sufficient"] → True/False
 ```
 
