@@ -230,7 +230,7 @@
                     "plans"
                 ],
                 "summary": "List available plans and pricing",
-                "description": "Public endpoint \u2014 no authentication required. Returns all available subscription plans with pricing, credit allowances, and feature lists. Credits cost $1.00 each. Credit packs of 20 ($20) are available on all plans. Use this to show users their options before they sign up or upgrade.",
+                "description": "Public endpoint \u2014 no authentication required. Returns all available subscription plans with pricing, credit allowances, and feature lists. Credits cost $0.10 each. Credit packs of 100 ($10) are available on all plans. Use this to show users their options before they sign up or upgrade.",
                 "operationId": "list_plans_v1_plans_get",
                 "responses": {
                     "200": {
@@ -316,7 +316,7 @@
                     "account"
                 ],
                 "summary": "Purchase credit packs",
-                "description": "Purchase Disco credits using a stored payment method. Credits cost $1.00 each, sold in packs of 20 ($20/pack). Requires a payment method on file (attach one via `POST /api/account/payment-method`). Returns 402 if no payment method is attached.",
+                "description": "Purchase Disco credits using a stored payment method. Credits cost $0.10 each, sold in packs of 100 ($10/pack). Requires a payment method on file (attach one via `POST /api/account/payment-method`). Returns 402 if no payment method is attached.",
                 "operationId": "purchase_credits_v1_account_credits_purchase_post",
                 "requestBody": {
                     "content": {
@@ -1690,6 +1690,12 @@
                         "title": "Visibility",
                         "description": "public (free) or private (costs credits)",
                         "default": "public"
+                    },
+                    "use_llms": {
+                        "type": "boolean",
+                        "title": "Use Llms",
+                        "description": "Slower and more expensive (5x credit multiplier), but you get smarter pre-processing, literature context and novelty assessment. Public runs always use LLMs regardless of this setting.",
+                        "default": false
                     }
                 },
                 "type": "object",
@@ -2315,7 +2321,7 @@
                         "maximum": 50,
                         "minimum": 1,
                         "title": "Packs",
-                        "description": "Number of 20-credit packs to purchase",
+                        "description": "Number of 100-credit packs to purchase",
                         "default": 1
                     }
                 },
