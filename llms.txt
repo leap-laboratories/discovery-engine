@@ -50,7 +50,7 @@ result = await engine.discover(
     target_column="outcome",       # column to analyze
     visibility="public",           # "public" (free) | "private" (credits)
     analysis_depth=2,              # higher = deeper analysis
-    use_llms=True,                 # False = skip all LLM calls (faster and cheaper, see python-sdk docs)
+    use_llms=False,                # Defaults to False. If True, runs are slower and more expensive, but you get smarter pre-processing, summary page, literature context and novelty assessment. Public runs always use LLMs.
 )
 
 for pattern in result.patterns:

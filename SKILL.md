@@ -200,7 +200,7 @@ Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (li
 - `excluded_columns` — JSON array of column names to exclude from analysis (see **Preparing Your Data** below)
 - `title` — Optional title for the analysis
 - `description` — Optional description of the dataset
-- `use_llms` — `true` (default) or `false`. When false, skips all LLM calls — returns only structured statistical results (conditions, p-values, effect sizes, feature importances). Faster. Use this when your own LLM will explain the findings. Tradeoffs: pattern descriptions are generic, novelty is not assessed (no citations), report summaries are omitted, ambiguous integer columns (e.g. "month" 1-12) may be misclassified as categorical, and text cluster names are generic.
+- `use_llms` — `false` (default) or `true`. Slower and more expensive, but you get smarter pre-processing, literature context and novelty assessment. **Public runs always use LLMs regardless of this setting.** Tradeoffs when false: pattern descriptions are generic, novelty is not assessed (no citations), report summaries are omitted, ambiguous integer columns (e.g. "month" 1-12) may be misclassified as categorical, and text cluster names are generic.
 - `author` — Optional author name for the dataset
 - `source_url` — Optional URL of the original data source
 
@@ -567,7 +567,7 @@ engine.discover(
 ## Cost
 
 - **Public runs**: Free. Results published to public gallery. Locked to depth=2.
-- **Private runs**: Credits scale with file size and depth. 5x multiplier with LLM explanations (default). $0.10 per credit. Use `discovery_estimate` to check cost before running.
+- **Private runs**: Credits scale with file size, depth, and run configuration. $0.10 per credit. Use `discovery_estimate` to check cost before running.
 - API keys: https://disco.leap-labs.com/developers
 - Credits: https://disco.leap-labs.com/account
 

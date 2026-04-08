@@ -170,7 +170,7 @@ await engine.discover(
         "hdl": "HDL cholesterol in mg/dL",
     },
     excluded_columns=["id", "timestamp"],  # see "Preparing your data" above
-    use_llms=True,                         # False = skip all LLM calls (faster and cheaper) — see docs
+    use_llms=False,                        # Defaults to False. If True, runs are slower and more expensive, but you get smarter pre-processing, summary page, literature context and novelty assessment. Public runs always use LLMs.
     title="My dataset",
     description="...", # improves pattern explanations and literature context
 )
@@ -228,12 +228,12 @@ Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery
 
 | | Cost |
 |---|---|
-| Public runs | Free — results and data are published|
-| Private runs | 1 credit per MB |
+| Public runs | Free — results and data are published |
+| Private runs | Credits vary by file size and configuration — use `engine.estimate()` |
 | Free tier | 10 credits/month, no card required |
 | Researcher | $49/month — 50 credits |
 | Team | $199/month — 200 credits |
-| Purchase more credits at $0.10 per credit |
+| Credits | $0.10 per credit |
 
 Estimate before running:
 

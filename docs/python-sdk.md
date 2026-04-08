@@ -47,7 +47,7 @@ await engine.discover(
     description: str | None = None,     # Dataset description
     column_descriptions: dict[str, str] | None = None,  # Improves pattern explanations
     excluded_columns: list[str] | None = None,           # Columns to exclude — see below
-    use_llms: bool = True,              # False = skip LLM calls (faster, cheaper) — see below
+    use_llms: bool = False,             # True = LLM explanations (costs more) — see below
     timeout: float = 1800,              # Max seconds to wait
     # Additional kwargs forwarded to run_async():
     # task, author, source_url, timeseries_groups, ...
@@ -56,7 +56,7 @@ await engine.discover(
 
 > **Tip:** Providing `column_descriptions` significantly improves pattern explanations. If your columns have non-obvious names, always describe them.
 
-> **`use_llms=False`:** Skips all LLM calls in the pipeline. Returns only structured statistical results — conditions, p-values, effect sizes, feature importances. Use this when your own LLM will contextualize and explain the findings (e.g. agent integrations, copilots, or platforms that post-process results). What changes: pattern descriptions fall back to generic text, novelty is not assessed (all patterns marked confirmatory, no citations), report summaries are omitted, integer columns with few unique values (e.g. "month" 1-12, "hour" 0-23) may be misclassified as categorical instead of continuous, and high-cardinality text columns get generic cluster names instead of descriptive ones.
+> **`use_llms`:** Default `False`. Slower and more expensive, but you get smarter pre-processing, literature context and novelty assessment. Set to `True` if you want Disco-generated pattern descriptions, novelty assessment with citations, and report summaries. **Public runs always use LLMs regardless of this setting.** What changes when false: pattern descriptions fall back to generic text, novelty is not assessed (all patterns marked confirmatory, no citations), report summaries are omitted, integer columns with few unique values (e.g. "month" 1-12, "hour" 0-23) may be misclassified as categorical instead of continuous, and high-cardinality text columns get generic cluster names instead of descriptive ones. Use `engine.estimate()` to check credit cost before running.
 
 > **Visibility:** `"public"` runs are free but results are published, and analysis depth is locked to 2. `"private"` runs keep results confidential and consume credits.
 
@@ -199,7 +199,7 @@ print(f"Explore: {result.report_url}")
 ## Credits and Pricing
 
 - **Public runs**: Free. Results published to public gallery. Locked to depth=2.
-- **Private runs**: Credits scale with file size and depth. 5x multiplier with LLM explanations (default). $0.10 per credit. Use `engine.estimate()` to check cost before running.
+- **Private runs**: Credits scale with file size, depth, and run configuration. $0.10 per credit. Use `engine.estimate()` to check cost before running.
 
 ```python
 # Estimate cost before running
