@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "Disco API",
-        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is validated on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n## Agent workflow\n\n**Step 1 — Get an API key** (once):\n- `POST /api/signup` with `{\"email\": \"...\"}` → sends a 6-digit code\n- `POST /api/signup/verify` with `{\"email\": \"...\", \"code\": \"...\"}` → returns `{\"key\": \"disco_...\"}`\n- Use this key as `Authorization: Bearer disco_...` for all subsequent requests\n\n**Step 2 — Estimate cost** (optional but recommended):\n- `POST /api/estimate` with file size, column count, depth, visibility\n- Returns credit cost and time estimate\n\n**Step 3 — Upload data:**\n- `POST /api/data/upload/from-url` with `{\"url\": \"https://...\"}` → returns `file` and `columns`\n- The data must be at a public URL (CSV, Excel, Parquet, JSON, etc up to 5GB). Ask the user for a URL to their dataset.\n- For programmatic uploads from local files, use the presign flow: `POST /api/data/upload/presign` → PUT file to `uploadUrl` → `POST /api/data/upload/finalize`\n\n**Step 4 — Run analysis:**\n- `POST /api/reports/create-from-upload` with `file`, `columns`, and `targetColumn` from step 3 → returns `{\"run_id\": \"...\"}`\n\n**Step 5 — Poll for results:**\n- `GET /api/runs/{run_id}/results` — poll every 10s until `status` is `\"completed\"` (typically 3–15 min)\n- Response includes `patterns[]` with conditions, p-values, effect sizes, novelty scores, and citations\n\n## Billing\n\nPublic runs are free. If the user needs more credits or a paid plan, send them to https://disco.leap-labs.com/account to upgrade.\n\n## Authentication\n\n`disco_` API keys via `Authorization: Bearer disco_...` header. Get a key via signup or at https://disco.leap-labs.com/developers.\n\n## SDK\n\n`pip install discovery-engine-api` — [Full docs](https://disco.leap-labs.com/llms-full.txt)",
+        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is validated on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n## Agent workflow\n\n**Step 1 — Get an API key** (once):\n- `POST /api/signup` with `{\"email\": \"...\"}` → sends a 6-digit code\n- `POST /api/signup/verify` with `{\"email\": \"...\", \"code\": \"...\"}` → returns `{\"key\": \"disco_...\"}`\n- Use this key as `Authorization: Bearer disco_...` for all subsequent requests\n\n**Step 2 — Estimate cost** (optional but recommended):\n- `POST /api/estimate` with file size, column count, depth, visibility\n- Returns credit cost and time estimate\n\n**Step 3 — Upload data** (pick one):\n- *From URL:* `POST /api/data/upload/from-url` with `{\"url\": \"https://...\"}` → returns `file` and `columns`\n- *Direct (base64):* `POST /api/data/upload/direct` with `{\"fileName\": \"data.csv\", \"content\": \"<base64>\"}` → returns `file` and `columns`. Max 50MB.\n- *Presign flow (for large files):* `POST /api/data/upload/presign` → PUT file to `uploadUrl` → `POST /api/data/upload/finalize`\n\n**Step 4 — Run analysis:**\n- `POST /api/reports/create-from-upload` with `file`, `columns`, and `targetColumn` from step 3 → returns `{\"run_id\": \"...\"}`\n\n**Step 5 — Poll for results:**\n- `GET /api/runs/{run_id}/results` — poll every 10s until `status` is `\"completed\"` (typically 3–15 min)\n- Response includes `patterns[]` with conditions, p-values, effect sizes, novelty scores, and citations\n\n## Billing\n\nPublic runs are free. If the user needs more credits or a paid plan, send them to https://disco.leap-labs.com/account to upgrade.\n\n## Authentication\n\n`disco_` API keys via `Authorization: Bearer disco_...` header. Get a key via signup or at https://disco.leap-labs.com/developers.\n\n## SDK\n\n`pip install discovery-engine-api` — [Full docs](https://disco.leap-labs.com/llms-full.txt)",
         "version": "1.0.0"
     },
     "servers": [
@@ -578,6 +578,69 @@
                             }
                         }
                     }
+                },
+                "security": [{"BearerAuth": []}]
+            }
+        },
+        "/api/data/upload/direct": {
+            "post": {
+                "tags": ["upload"],
+                "summary": "Upload file directly (base64)",
+                "description": "Upload a file as base64 in a JSON body. Handles storage and processing in one step. Max 50MB. For larger files, use presign flow or from-url.",
+                "operationId": "upload_direct",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["fileName", "content"],
+                                "properties": {
+                                    "fileName": {"type": "string", "description": "File name with extension (e.g. data.csv, dataset.xlsx)"},
+                                    "content": {"type": "string", "format": "byte", "description": "Base64-encoded file content"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Processed file metadata and columns (same as /api/data/upload/finalize)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ok": {"type": "boolean"},
+                                        "file": {
+                                            "type": "object",
+                                            "properties": {
+                                                "key": {"type": "string"},
+                                                "name": {"type": "string"},
+                                                "size": {"type": "integer"},
+                                                "fileHash": {"type": "string"}
+                                            }
+                                        },
+                                        "columns": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "name": {"type": "string"},
+                                                    "type": {"type": "string"},
+                                                    "enabled": {"type": "boolean"},
+                                                    "description": {"type": "string", "nullable": true}
+                                                }
+                                            }
+                                        },
+                                        "rowCount": {"type": "integer"},
+                                        "issues": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "413": {"description": "File too large (max 50MB for direct upload)"}
                 },
                 "security": [{"BearerAuth": []}]
             }
