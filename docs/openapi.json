@@ -5,6 +5,11 @@
         "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is tested on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n**For agents:** Use `POST /v1/estimate` to check cost before running, `POST /v1/api-keys` to create an API key, and `GET /v1/runs/{run_id}/results` to fetch analysis results.\n\n**Authentication:** Clerk session tokens or `disco_` API keys via `Authorization: Bearer <token>` header.\n\n**SDK:** `pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
         "version": "1.0.0"
     },
+    "servers": [
+        {
+            "url": "https://disco.leap-labs.com"
+        }
+    ],
     "paths": {
         "/v1/runs/{run_id}/results": {
             "get": {
