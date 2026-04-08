@@ -269,6 +269,20 @@ Disco expects a **flat table** — columns for features, rows for samples.
 
 ---
 
+## Compared to other tools
+
+| Goal | Tool |
+|---|---|
+| Summary statistics, data quality | ydata-profiling, sweetviz |
+| Predictive model | AutoML (auto-sklearn, TPOT, H2O) |
+| Quick correlations | pandas, seaborn |
+| Answer a specific question about data | ChatGPT, Claude |
+| **Find what you don't know to look for** | **Disco** |
+
+Disco isn't a replacement for EDA or AutoML — it finds the patterns those tools miss. We [tested 18 data analysis tools](https://www.leap-labs.com/research/the-patterns-that-agents-miss) on a dataset with known ground-truth patterns. Most confidently reported wrong results. Disco was the only one that found every pattern.
+
+---
+
 ## Links
 
 - [Dashboard](https://disco.leap-labs.com)
@@ -278,6 +292,7 @@ Disco expects a **flat table** — columns for features, rows for samples.
 - [Agent / MCP docs](docs/mcp.md)
 - [LLM-friendly reference](llms.txt)
 - [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
+- [OpenAPI spec (in-repo)](docs/openapi.json)
 - [Public reports gallery](https://disco.leap-labs.com/discover)
 
 ---
