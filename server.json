@@ -3,7 +3,7 @@
   "name": "com.leap-labs/discovery-engine",
   "title": "Disco",
   "description": "Find novel, statistically validated patterns in tabular data — hypothesis-free.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "websiteUrl": "https://www.leap-labs.com",
   "repository": {
     "url": "https://github.com/leap-laboratories/discovery-engine",
