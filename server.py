@@ -9,9 +9,11 @@ It is synced automatically on every staging → main merge via .github/workflows
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+from pathlib import Path
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -36,6 +38,25 @@ _OAUTH_SECRET = os.getenv("MCP_OAUTH_SECRET")
 _SERVER_URL = os.getenv("MCP_SERVER_URL", "")
 
 _VALID_VISIBILITY = {"public", "private"}
+
+# 8 MB chunks — bounded memory for multi-GB uploads (avoids the _ssl.c:2426
+# crash from passing the full file body to httpx as a single bytes object).
+_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024
+
+
+async def _stream_file_chunks(path: Path, chunk_size: int = _UPLOAD_CHUNK_SIZE):
+    """Yield file contents in fixed-size chunks for streaming uploads.
+
+    Reads via run_in_executor so the event loop isn't blocked on read syscalls.
+    Memory stays bounded to one chunk regardless of file size.
+    """
+    loop = asyncio.get_event_loop()
+    with path.open("rb") as f:
+        while True:
+            chunk = await loop.run_in_executor(None, f.read, chunk_size)
+            if not chunk:
+                break
+            yield chunk
 
 # ---------------------------------------------------------------------------
 # OAuth setup (only when MCP_OAUTH_SECRET is configured)
@@ -331,7 +352,6 @@ async def discovery_upload(
         api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     import base64
-    from pathlib import Path
 
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -370,7 +390,7 @@ async def discovery_upload(
         if not path.is_file():
             return json.dumps({"error": f"Not a file: {file_path}"})
 
-        file_bytes = path.read_bytes()
+        file_size = path.stat().st_size
         filename = path.name
         mime_type = _MIME_TYPES.get(path.suffix.lower(), "text/csv")
 
@@ -378,17 +398,23 @@ async def discovery_upload(
             "POST",
             "/api/data/upload/presign",
             api_key=resolved_key,
-            json_body={"fileName": filename, "contentType": mime_type, "fileSize": len(file_bytes)},
+            json_body={"fileName": filename, "contentType": mime_type, "fileSize": file_size},
         )
         if "error" in presign:
             return json.dumps(presign)
 
+        # Stream from disk rather than loading the whole file into memory.
+        # GCS XML API rejects chunked transfer encoding on PUT, so we must
+        # send an explicit Content-Length header alongside the streamed body.
         try:
             async with httpx.AsyncClient(timeout=1800.0) as upload_client:
                 upload_resp = await upload_client.put(
                     presign["uploadUrl"],
-                    content=file_bytes,
-                    headers={"Content-Type": mime_type},
+                    content=_stream_file_chunks(path),
+                    headers={
+                        "Content-Type": mime_type,
+                        "Content-Length": str(file_size),
+                    },
                 )
                 if upload_resp.status_code >= 400:
                     return json.dumps(
