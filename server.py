@@ -58,6 +58,7 @@ async def _stream_file_chunks(path: Path, chunk_size: int = _UPLOAD_CHUNK_SIZE):
                 break
             yield chunk
 
+
 # ---------------------------------------------------------------------------
 # OAuth setup (only when MCP_OAUTH_SECRET is configured)
 # ---------------------------------------------------------------------------
