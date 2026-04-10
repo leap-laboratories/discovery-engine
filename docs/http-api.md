@@ -147,7 +147,7 @@ Authorization: Bearer disco_...
 
 ### POST /api/estimate
 
-Estimate cost and time before running an analysis.
+Estimate the credit cost of an analysis before running it.
 
 ```
 POST /api/estimate
@@ -157,7 +157,6 @@ Content-Type: application/json
 {
   "file_size_mb": 10.5,
   "num_columns": 25,
-  "num_rows": 5000,
   "analysis_depth": 2,
   "visibility": "private",
   "use_llms": false
@@ -168,7 +167,6 @@ Content-Type: application/json
 ```json
 {
   "cost": {"credits": 55, "price_usd": 5.5},
-  "time_estimate": {"estimated_seconds": 360},
   "limits": {"max_analysis_depth": 23},
   "account": {"sufficient": true}
 }
