@@ -22,16 +22,23 @@ Two-step signup — no password, no credit card:
 curl -X POST https://disco.leap-labs.com/api/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com"}'
-# → {"status": "verification_required", "email": "you@example.com"}
+# -> {"status": "verification_required", "email": "you@example.com"}
 
 # Step 2: Submit code from email
 curl -X POST https://disco.leap-labs.com/api/signup/verify \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "code": "123456"}'
-# → {"key": "disco_...", "tier": "free_tier", "credits": 10}
+# -> {"key": "disco_...", "tier": "free_tier", "credits": 10}
 ```
 
 Or create a key at https://disco.leap-labs.com/developers.
+
+Lost your key? Use login instead:
+
+```
+POST /api/login         {"email": "you@example.com"}  -> {"status": "verification_required"}
+POST /api/login/verify  {"email": "...", "code": "..."}  -> {"key": "disco_...", "tier": "..."}
+```
 
 Free tier: 10 credits/month for private runs, unlimited public runs. No card required.
 
@@ -50,21 +57,115 @@ result = await engine.discover(
     target_column="outcome",       # column to analyze
     visibility="public",           # "public" (free) | "private" (credits)
     analysis_depth=2,              # higher = deeper analysis
-    use_llms=False,                # Defaults to False. If True, runs are slower and more expensive, but you get smarter pre-processing, summary page, literature context and novelty assessment. Public runs always use LLMs.
+    use_llms=False,                # True = LLM explanations, novelty, citations (slower, costs more). Public runs always use LLMs.
+    column_descriptions={...},     # improves pattern explanations
+    excluded_columns=["id"],       # remove IDs, leakage, tautological columns
+    timeout=1800,                  # max seconds to wait
 )
 
 for pattern in result.patterns:
     if pattern.p_value < 0.05 and pattern.novelty_type == "novel":
         print(f"{pattern.description} (p={pattern.p_value:.4f})")
 
-# Check hints for suggestions (e.g. more patterns available — upgrade to see all)
 for hint in result.hints:
     print(hint)
 
 print(f"Report: {result.report_url}")
 ```
 
+### Signup and Login via SDK
+
+```python
+engine = await Engine.signup(email="you@example.com")  # sends code, prompts, returns Engine
+engine = await Engine.login(email="you@example.com")   # same flow for existing accounts
+```
+
+### Background Runs
+
+Runs take 3-15 minutes. Submit and continue:
+
+```python
+run = await engine.run_async(file="data.csv", target_column="outcome", wait=False)
+# ... do other work ...
+result = await engine.wait_for_completion(run.run_id, timeout=1800)
+```
+
+### Synchronous Usage
+
+```python
+result = engine.discover_sync(file="data.csv", target_column="outcome")  # blocking
+result = engine.run(file="data.csv", target_column="outcome", wait=True)  # more control
+```
+
+### Upload and Inspect Before Running
+
+```python
+upload = await engine.upload_file("data.csv")
+print(upload["columns"])  # see column names and types
+result = await engine.run_async(file="data.csv", target_column="col1", upload_result=upload, wait=True)
+```
+
 Full SDK reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/python-sdk.md
+
+## HTTP API
+
+All endpoints are at `https://disco.leap-labs.com/api/`. Authenticated endpoints require `Authorization: Bearer disco_...`.
+
+### Upload and Run (HTTP)
+
+```bash
+# 1. Get presigned upload URL
+curl -X POST https://disco.leap-labs.com/api/data/upload/presign \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"fileName": "data.csv", "contentType": "text/csv", "fileSize": 1048576}'
+# -> {"uploadUrl": "https://storage...", "key": "uploads/abc/data.csv", "uploadToken": "tok_..."}
+
+# 2. PUT file to presigned URL (no auth header needed)
+curl -X PUT "<uploadUrl>" -H "Content-Type: text/csv" --data-binary @data.csv
+
+# 3. Finalize upload
+curl -X POST https://disco.leap-labs.com/api/data/upload/finalize \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"key": "uploads/abc/data.csv", "uploadToken": "tok_..."}'
+# -> {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
+
+# 4. Submit analysis
+curl -X POST https://disco.leap-labs.com/api/reports/create-from-upload \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file": {"key": "...", "name": "data.csv", "size": 1048576, "fileHash": ""},
+    "columns": [...],
+    "targetColumn": "outcome",
+    "analysisDepth": 2,
+    "isPublic": true,
+    "useLlms": true,
+    "columnDescriptions": {"col1": "description"},
+    "excludedColumns": ["id"]
+  }'
+# -> {"run_id": "abc123", "report_id": "..."}
+
+# 5. Poll for results
+curl https://disco.leap-labs.com/api/runs/abc123/results \
+  -H "Authorization: Bearer disco_..."
+# -> {"status": "processing", "current_step": "training", ...}
+# ... poll every 5s until status is "completed" ...
+# -> {"status": "completed", "patterns": [...], "summary": {...}, ...}
+```
+
+For small files, skip the presign flow:
+
+```bash
+curl -X POST https://disco.leap-labs.com/api/data/upload/direct \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"fileName": "data.csv", "content": "<base64-encoded>"}'
+# -> {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
+```
+
+Full HTTP API reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/http-api.md
 
 ## MCP Server
 
@@ -79,15 +180,64 @@ Full SDK reference: https://github.com/leap-laboratories/discovery-engine/blob/m
 }
 ```
 
+Tools: `discovery_list_plans`, `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery_status`, `discovery_get_results`, `discovery_account`, `discovery_signup`, `discovery_signup_verify`, `discovery_login`, `discovery_login_verify`, `discovery_add_payment_method`, `discovery_subscribe`, `discovery_purchase_credits`.
+
 Agent skill file: https://github.com/leap-laboratories/discovery-engine/blob/main/SKILL.md
+
+## Result Structure
+
+```python
+EngineResult:
+    run_id: str
+    status: str                         # "pending" | "processing" | "completed" | "failed"
+    patterns: list[Pattern]             # the core output
+    summary: Summary | None             # LLM-generated insights (overview, key_insights, novel_patterns)
+    feature_importance: FeatureImportance | None  # signed global importance scores
+    columns: list[Column]               # feature info and statistics
+    correlation_matrix: list[CorrelationEntry]
+    report_url: str | None              # shareable link to interactive web report
+    dashboard_urls: dict | None         # direct links to report sections (summary, patterns, territory, features)
+    hints: list[str]                    # upgrade hints for free-tier users
+    hidden_deep_count: int              # patterns hidden behind paywall
+    # + dataset metadata, job tracking fields, error_message
+
+Pattern:
+    id: str
+    description: str                    # human-readable
+    conditions: list[dict]              # feature ranges/values defining the pattern
+    p_value: float                      # FDR-adjusted
+    novelty_type: str                   # "novel" | "confirmatory"
+    novelty_explanation: str
+    citations: list[dict]               # academic references
+    target_change_direction: str        # "max" (increases target) | "min" (decreases)
+    abs_target_change: float            # effect magnitude
+    support_count: int                  # rows matching
+    support_percentage: float
+    # + task, target_column, target_class, target_mean, target_std, p_value_raw
+
+Summary:
+    overview: str
+    key_insights: list[str]
+    novel_patterns: PatternGroup        # {pattern_ids: list[str], explanation: str}
+
+CorrelationEntry:
+    feature_x: str
+    feature_y: str
+    value: float
+```
+
+Pattern conditions have a `type` field:
+- `continuous`: `feature`, `min_value`, `max_value`, `min_q`, `max_q`
+- `categorical`: `feature`, `values`
+- `datetime`: `feature`, `min_value`, `max_value`, `min_datetime`, `max_datetime`
 
 ## Pricing
 
 - Public runs: Free (results published, depth locked to 2)
-- Private runs: $0.10/credit. Number of credits required increases with file size, analysis depth, and whether LLM explanations are turned on. Use estimate endpoint to check cost.
+- Private runs: $0.10/credit. Cost increases with file size, analysis depth, and LLM usage.
 - Free tier: 10 free credits/month
-- Researcher: $49/month, 50 free credits/month + deeper analysis
-- Team: $199/month, 200 free credits/month + deeper analysis
+- Researcher: $49/month, 50 free credits/month
+- Team: $199/month, 200 free credits/month
 
 Estimate before running:
 
@@ -98,8 +248,41 @@ estimate = await engine.estimate(
     analysis_depth=2,
     visibility="private",
 )
-# estimate["cost"]["credits"]              → 21
-# estimate["account"]["sufficient"]        → True/False
+# estimate["cost"]["credits"]              -> 21
+# estimate["account"]["sufficient"]        -> True/False
+```
+
+## Account Management
+
+```python
+account = await engine.get_account()       # plan, credits, payment method status
+await engine.add_payment_method("pm_...")   # attach Stripe card (see SKILL.md for tokenization)
+await engine.subscribe("tier_1")           # "free_tier" | "tier_1" ($49/mo) | "tier_2" ($199/mo)
+await engine.purchase_credits(packs=1)     # 100 credits per pack, $10/pack
+```
+
+REST equivalents:
+
+```
+GET  /api/account                    -> plan, credits, stripe_publishable_key
+POST /api/account/payment-method     {"payment_method_id": "pm_..."}
+POST /api/account/subscribe          {"plan": "tier_1"}
+POST /api/account/credits/purchase   {"packs": 1}
+```
+
+## Error Handling
+
+SDK errors inherit from `DiscoveryError` and include a `suggestion` field:
+
+```python
+from discovery.errors import (
+    AuthenticationError,       # invalid/expired API key
+    InsufficientCreditsError,  # not enough credits (has credits_required, credits_available)
+    PaymentRequiredError,      # no payment method on file
+    RateLimitError,            # too many requests (has retry_after)
+    RunFailedError,            # run failed server-side (has run_id)
+    RunNotFoundError,          # run not found (has run_id)
+)
 ```
 
 ## Preparing Your Data
@@ -109,7 +292,6 @@ Before running, use `excluded_columns` to remove columns that would produce taut
 1. **Identifiers** — row IDs, UUIDs, patient IDs, sample codes
 2. **Data leakage** — the target column renamed or reformatted
 3. **Tautological columns** — alternative encodings of the same construct as the target (e.g., if target is `serious`, exclude `serious_outcome`, `not_serious`, `death` — they're all part of the same classification system; if target is `profit`, exclude `revenue` and `cost` which compose it)
-
 
 ## Expected Data Format
 
@@ -122,16 +304,15 @@ Disco expects a flat table — columns for features, rows for samples.
 
 Not supported: images, raw text documents, nested/hierarchical JSON, multi-sheet Excel.
 
-## Supported File Formats
-
-CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
+Supported formats: CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
 
 ## Links
 
 - Dashboard: https://disco.leap-labs.com
 - API keys: https://disco.leap-labs.com/developers
-- Agent docs: https://disco.leap-labs.com/agents
+- Python SDK on PyPI: https://pypi.org/project/discovery-engine-api/
+- Python SDK reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/python-sdk.md
+- HTTP API reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/http-api.md
+- Agent/MCP skill file: https://github.com/leap-laboratories/discovery-engine/blob/main/SKILL.md
 - OpenAPI spec: https://disco.leap-labs.com/.well-known/openapi.json
 - MCP manifest: https://disco.leap-labs.com/.well-known/mcp.json
-- Python SDK on PyPI: https://pypi.org/project/discovery-engine-api/
-- MCP server on PyPI: https://pypi.org/project/discovery-engine-mcp/

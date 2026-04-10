@@ -49,7 +49,7 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 # → {"key": "disco_...", "credits": 10, "tier": "free_tier"}
 ```
 
-Or create a key at [disco.leap-labs.com/docs](https://disco.leap-labs.com/docs).
+Or create a key at [disco.leap-labs.com/developers](https://disco.leap-labs.com/developers).
 
 Run your first analysis:
 
@@ -220,7 +220,7 @@ Disco is available as an MCP server — no local install required.
 
 Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery_status`, `discovery_get_results`, plus account management tools.
 
-→ [Full agent skill file](SKILL.md) · [MCP docs](docs/mcp.md)
+→ [Full agent skill file](SKILL.md)
 
 ---
 
@@ -242,6 +242,8 @@ estimate = await engine.estimate(file_size_mb=10.5, num_columns=25, analysis_dep
 # estimate["cost"]["credits"] → 55
 # estimate["account"]["sufficient"] → True/False
 ```
+
+Account management is fully programmatic — attach payment methods, subscribe to plans, and purchase credits via the SDK or REST API. See [Python SDK reference](docs/python-sdk.md#account-management) or [SKILL.md](SKILL.md#paying-for-credits-programmatic).
 
 ---
 
@@ -286,10 +288,11 @@ Disco isn't a replacement for EDA or AutoML — it finds the patterns those tool
 ## Links
 
 - [Dashboard](https://disco.leap-labs.com)
-- [API keys](https://disco.leap-labs.com/docs)
+- [API keys](https://disco.leap-labs.com/developers)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
 - [Python SDK reference](docs/python-sdk.md)
-- [Agent / MCP docs](docs/mcp.md)
+- [HTTP API reference](docs/http-api.md)
+- [Agent / MCP docs](SKILL.md)
 - [LLM-friendly reference](llms.txt)
 - [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
 - [OpenAPI spec (in-repo)](docs/openapi.json)

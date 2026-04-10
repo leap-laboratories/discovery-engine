@@ -33,7 +33,46 @@ for pattern in result.patterns:
 print(f"Full report: {result.report_url}")
 ```
 
-Get your API key from the [Developers page](https://disco.leap-labs.com/developers).
+Get your API key from the [Developers page](https://disco.leap-labs.com/developers), or create one programmatically:
+
+### Getting an API Key
+
+`Engine.signup()` and `Engine.login()` are class methods — no instance needed.
+
+```python
+# New account (free tier — 10 credits/month, no card required)
+engine = await Engine.signup(email="you@example.com")
+
+# Existing account (lost your key, new session, etc.)
+engine = await Engine.login(email="you@example.com")
+```
+
+Both methods send a 6-digit verification code to the email, prompt for it interactively, and return a configured `Engine` instance with a `disco_` API key.
+
+```python
+@classmethod
+async def signup(cls, email: str, *, name: Optional[str] = None, quiet: bool = False) -> Engine
+```
+- Falls back to direct provisioning if email service is unavailable
+- Raises `ValueError` if the email is already registered (409)
+
+```python
+@classmethod
+async def login(cls, email: str, *, quiet: bool = False) -> Engine
+```
+- Raises `ValueError` if no account exists (404)
+
+**REST API (for automated agents):** If you don't have a terminal for the interactive prompt, use the two-step flow directly:
+
+```
+# Signup
+POST /api/signup         → {"status": "verification_required"}
+POST /api/signup/verify  → {"key": "disco_...", "tier": "free_tier", "credits": 10}
+
+# Login
+POST /api/login          → {"status": "verification_required"}
+POST /api/login/verify   → {"key": "disco_...", ...}
+```
 
 ## Parameters
 
@@ -47,7 +86,7 @@ await engine.discover(
     description: str | None = None,     # Dataset description
     column_descriptions: dict[str, str] | None = None,  # Improves pattern explanations
     excluded_columns: list[str] | None = None,           # Columns to exclude — see below
-    use_llms: bool = False,             # True = LLM explanations (costs more) — see below
+    use_llms: bool = False,             # LLM explanations, novelty assessment, citations (costs more) — see below
     timeout: float = 1800,              # Max seconds to wait
     # Additional kwargs forwarded to run_async():
     # task, author, source_url, timeseries_groups, ...
@@ -155,6 +194,14 @@ For scripts and Jupyter notebooks:
 from discovery import Engine
 
 engine = Engine(api_key="disco_...")
+
+# Simple — wraps discover(), always waits for completion
+result = engine.discover_sync(
+    file="data.csv",
+    target_column="outcome",
+)
+
+# More control — wraps run_async(), supports wait=False
 result = engine.run(
     file="data.csv",
     target_column="outcome",
@@ -219,6 +266,68 @@ estimate = await engine.estimate(
 Manage credits and plans at [disco.leap-labs.com/account](https://disco.leap-labs.com/account).
 
 
+## Account Management
+
+```python
+# Check your account — plan, credits, payment method
+account = await engine.get_account()
+# account["plan"]                    -> "free_tier"
+# account["credits"]["total"]        -> 10
+# account["credits"]["used"]         -> 3
+# account["payment_method"]["on_file"] -> False
+# account["stripe_publishable_key"]  -> "pk_live_..."
+
+# Attach a payment method (Stripe PaymentMethod ID — see below)
+result = await engine.add_payment_method("pm_...")
+# result["payment_method_attached"]  -> True
+# result["card_brand"]               -> "visa"
+# result["card_last4"]               -> "4242"
+
+# Subscribe to a plan
+result = await engine.subscribe("tier_1")
+# Plans: "free_tier" ($0, 10 cr/mo), "tier_1" ($49, 50 cr/mo), "tier_2" ($199, 200 cr/mo)
+# result["plan"]            -> "tier_1"
+# result["price_usd"]       -> 49
+# result["monthly_credits"] -> 50
+
+# Purchase credit packs (100 credits per pack, $10/pack)
+result = await engine.purchase_credits(packs=1)
+# result["purchased_credits"]  -> 100
+# result["total_credits"]      -> 110
+# result["charge_amount_usd"]  -> 10.0
+
+# Revert to free tier
+result = await engine.subscribe("free_tier")
+```
+
+### Stripe Card Tokenization
+
+`add_payment_method()` requires a Stripe `pm_...` token. Card data goes directly to Stripe — Disco never sees it.
+
+```python
+import requests
+
+account = await engine.get_account()
+pk = account["stripe_publishable_key"]
+
+pm = requests.post(
+    "https://api.stripe.com/v1/payment_methods",
+    auth=(pk, ""),
+    data={
+        "type": "card",
+        "card[number]": "4242424242424242",
+        "card[exp_month]": "12",
+        "card[exp_year]": "2028",
+        "card[cvc]": "123",
+    },
+).json()
+
+await engine.add_payment_method(pm["id"])
+```
+
+REST equivalents for all account endpoints are documented in [SKILL.md](../SKILL.md#paying-for-credits-programmatic).
+
+
 ## Expected Data Format
 
 Disco expects a **flat table** — columns for features, rows for samples.
@@ -235,6 +344,19 @@ Not supported: images, raw text documents, nested/hierarchical JSON, multi-sheet
 Uploads up to **5 GB**. Files are uploaded directly to cloud storage using presigned URLs.
 
 Supported formats: **CSV**, **TSV**, **Excel (.xlsx)**, **JSON**, **Parquet**, **ARFF**, **Feather**.
+
+### Direct Upload
+
+For small files, skip the 3-step presign flow and upload inline with base64:
+
+```
+POST /api/data/upload/direct
+Authorization: Bearer disco_...
+{"fileName": "data.csv", "content": "<base64-encoded file>"}
+→ {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
+```
+
+For large files, use presigned uploads or the SDK (`engine.upload_file()`).
 
 
 ## Return Value
@@ -266,6 +388,7 @@ class EngineResult:
     estimated_wait_seconds: int | None             # Estimated queue wait time in seconds (pending only)
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report
+    dashboard_urls: dict[str, dict[str, str]] | None  # Direct links to report sections (summary, patterns, territory, features)
     hints: list[str]                               # Upgrade hints (non-empty for free-tier users with hidden patterns)
     hidden_deep_count: int                         # Patterns hidden for free-tier accounts (upgrade to see all)
     hidden_deep_novel_count: int                   # Novel patterns hidden for free-tier accounts
@@ -333,6 +456,15 @@ Each condition in `pattern.conditions` is a dict with a `type` field:
 }
 ```
 
+### PatternGroup
+
+```python
+@dataclass
+class PatternGroup:
+    pattern_ids: list[str]              # IDs of patterns in this group
+    explanation: str                    # Why these patterns are grouped
+```
+
 ### Summary
 
 ```python
@@ -342,6 +474,16 @@ class Summary:
     key_insights: list[str]             # Main takeaways
     novel_patterns: PatternGroup        # Novel pattern IDs and explanation
     selected_pattern_id: str | None     # ID of the highlighted/featured pattern
+```
+
+### CorrelationEntry
+
+```python
+@dataclass
+class CorrelationEntry:
+    feature_x: str
+    feature_y: str
+    value: float
 ```
 
 ### Column

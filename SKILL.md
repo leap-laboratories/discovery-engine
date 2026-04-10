@@ -86,6 +86,7 @@ Choose the right path for your situation:
 | Local file, Python available | Python SDK (`engine.discover(...)`) |
 | Local file, MCP server running locally | `file_path` in `discovery_upload` |
 | Local file, hosted MCP, no Python | Direct upload API (3 steps — see below) |
+| Small file, any language | `POST /api/data/upload/direct` (single step — see below) |
 | Tiny file already in memory | `file_content` in `discovery_upload` (last resort) |
 
 ---
@@ -157,6 +158,20 @@ curl -X POST https://disco.leap-labs.com/api/data/upload/finalize \
 ```
 
 Pass the finalize response directly to `discovery_analyze` as `file_ref`. No size limit.
+
+---
+
+**Small file — direct upload** (single HTTP call, simpler than presign):
+
+```bash
+curl -X POST https://disco.leap-labs.com/api/data/upload/direct \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"fileName": "data.csv", "content": "<base64-encoded file content>"}'
+# → {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
+```
+
+Pass the response directly to `discovery_analyze` as `file_ref`. Simpler than the 3-step presign flow but the entire file must fit in the request body. For large files, use presigned uploads or the Python SDK.
 
 ---
 
@@ -558,6 +573,7 @@ engine.discover(
     description: str | None = None,     # Dataset description
     column_descriptions: dict[str, str] | None = None,  # Column descriptions for better pattern explanations
     excluded_columns: list[str] | None = None,           # Columns to exclude from analysis
+    use_llms: bool = False,             # True = LLM explanations (costs more) — see below
     timeout: float = 1800,              # Max seconds to wait for completion
 )
 ```
@@ -703,6 +719,7 @@ class EngineResult:
     estimated_wait_seconds: int | None             # Estimated queue wait time in seconds (pending only)
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report
+    dashboard_urls: dict[str, dict[str, str]] | None  # Direct links to report sections (summary, patterns, territory, features)
     hints: list[str]                               # Upgrade hints (non-empty for free-tier users with hidden patterns)
     hidden_deep_count: int                         # Patterns hidden for free-tier accounts (upgrade to see all)
     hidden_deep_novel_count: int                   # Novel patterns hidden for free-tier accounts
@@ -729,11 +746,22 @@ class Pattern:
     target_std: float | None
 
 @dataclass
+class PatternGroup:
+    pattern_ids: list[str]              # IDs of patterns in this group
+    explanation: str                    # Why these patterns are grouped
+
+@dataclass
 class Summary:
     overview: str                       # High-level summary
     key_insights: list[str]             # Main takeaways
     novel_patterns: PatternGroup        # Novel pattern IDs and explanation
     selected_pattern_id: str | None
+
+@dataclass
+class CorrelationEntry:
+    feature_x: str
+    feature_y: str
+    value: float
 
 @dataclass
 class Column:
