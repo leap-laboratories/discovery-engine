@@ -82,7 +82,7 @@ engine = await Engine.login(email="you@example.com")   # same flow for existing 
 
 ### Background Runs
 
-Runs take 3-15 minutes. Submit and continue:
+Runs are async and can take a while. Submit and continue:
 
 ```python
 run = await engine.run_async(file="data.csv", target_column="outcome", wait=False)

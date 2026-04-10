@@ -323,7 +323,7 @@ pip install discovery-engine-api
 
 ## Quick Start
 
-Disco runs take 3-15 minutes. **Do not block on them** — submit the run, continue with other work, and retrieve results when ready.
+Disco runs are async and can take a while. **Do not block on them** — submit the run, continue with other work, and retrieve results when ready.
 
 ```python
 from discovery import Engine
@@ -682,12 +682,10 @@ Before submitting a private analysis, estimate the cost and time:
 estimate = await engine.estimate(
     file_size_mb=10.5,
     num_columns=25,
-    num_rows=5000,                # Optional — improves time estimate accuracy
     analysis_depth=2,
     visibility="private",
 )
 # estimate["cost"]["credits"] → 55
-# estimate["time_estimate"]["estimated_seconds"] → 360
 # estimate["account"]["sufficient"] → True/False
 ```
 

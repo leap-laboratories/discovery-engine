@@ -17,7 +17,7 @@
                     "results"
                 ],
                 "summary": "Get complete analysis results",
-                "description": "Returns analysis results including patterns, p-values, novelty scores, and citations. Poll until status is \"completed\" (3-15 min). If \"failed\", check error_message.",
+                "description": "Returns analysis results including patterns, p-values, novelty scores, and citations. Poll until status is \"completed\". If \"failed\", check error_message.",
                 "operationId": "get_results_v1_runs__run_id__results_get",
                 "parameters": [
                     {
@@ -710,7 +710,7 @@
             "post": {
                 "tags": ["discover"],
                 "summary": "Start a discovery analysis",
-                "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results. Runs take 3-15 minutes.",
+                "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results.",
                 "operationId": "create_analysis",
                 "requestBody": {
                     "required": true,
@@ -1710,9 +1710,6 @@
                     "cost": {
                         "$ref": "#/components/schemas/EstimateCost"
                     },
-                    "time_estimate": {
-                        "$ref": "#/components/schemas/EstimateTime"
-                    },
                     "limits": {
                         "$ref": "#/components/schemas/EstimateLimits"
                     },
@@ -1731,24 +1728,9 @@
                 "type": "object",
                 "required": [
                     "cost",
-                    "time_estimate",
                     "limits"
                 ],
                 "title": "EstimateResponse"
-            },
-            "EstimateTime": {
-                "properties": {
-                    "estimated_seconds": {
-                        "type": "integer",
-                        "title": "Estimated Seconds",
-                        "description": "Estimated processing time in seconds"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "estimated_seconds"
-                ],
-                "title": "EstimateTime"
             },
             "ExcludedColumn": {
                 "properties": {

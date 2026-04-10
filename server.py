@@ -529,7 +529,7 @@ async def discovery_analyze(
     nobody thought to look for, then validates each on hold-out data with FDR-corrected
     p-values and checks novelty against academic literature.
 
-    This is a long-running operation (3-15 minutes). Returns a run_id immediately.
+    This is a long-running operation. Returns a run_id immediately.
     Use discovery_status to poll and discovery_get_results to fetch completed results.
 
     Use this when you need to go beyond answering questions about data and start

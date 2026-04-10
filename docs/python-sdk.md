@@ -53,7 +53,6 @@ Both methods send a 6-digit verification code to the email, prompt for it intera
 @classmethod
 async def signup(cls, email: str, *, name: Optional[str] = None, quiet: bool = False) -> Engine
 ```
-- Falls back to direct provisioning if email service is unavailable
 - Raises `ValueError` if the email is already registered (409)
 
 ```python
@@ -258,7 +257,6 @@ estimate = await engine.estimate(
 )
 # estimate["cost"]["credits"]               -> 55
 # estimate["cost"]["price_usd"]             -> 5.5
-# estimate["time_estimate"]["estimated_seconds"] -> 360
 # estimate["account"]["sufficient"]         -> True/False
 # estimate["limits"]["max_analysis_depth"]  -> 23  (num_columns - 2)
 ```
