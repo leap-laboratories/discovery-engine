@@ -251,8 +251,8 @@
                 "tags": [
                     "estimate"
                 ],
-                "summary": "Estimate cost and time for an analysis",
-                "description": "Estimate credit cost and duration before running an analysis. Returns cost, time estimate, and (if authenticated) whether you have sufficient credits. No auth required.",
+                "summary": "Estimate credit cost for an analysis",
+                "description": "Estimate the credit cost of an analysis before running it. Returns cost, limits, and (if authenticated) whether you have sufficient credits. No auth required.",
                 "operationId": "estimate_v1_estimate_post",
                 "requestBody": {
                     "content": {
@@ -1663,19 +1663,6 @@
                         "exclusiveMinimum": 0,
                         "title": "Num Columns",
                         "description": "Number of columns in the dataset"
-                    },
-                    "num_rows": {
-                        "anyOf": [
-                            {
-                                "type": "integer",
-                                "exclusiveMinimum": 0
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Num Rows",
-                        "description": "Number of rows (improves time estimate)"
                     },
                     "analysis_depth": {
                         "type": "integer",
