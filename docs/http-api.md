@@ -21,7 +21,6 @@ Content-Type: application/json
 
 **Responses:**
 - `200` — Code sent: `{"status": "verification_required", "email": "you@example.com"}`
-- `201` — Direct provisioning (trusted domain): `{"key": "disco_...", "tier": "free_tier", "credits": 10}`
 - `409` — Email already registered
 - `422` — Invalid email format
 
@@ -53,7 +52,6 @@ Content-Type: application/json
 
 **Responses:**
 - `200` — Code sent: `{"status": "verification_required"}`
-- `200` — Trusted domain bypass: `{"key": "disco_...", ...}`
 - `404` — No account with this email
 
 ### POST /api/login/verify
