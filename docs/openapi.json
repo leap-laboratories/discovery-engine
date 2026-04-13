@@ -122,48 +122,6 @@
         }
       }
     },
-    "/api/columns/recommend-exclusions": {
-      "post": {
-        "tags": [
-          "columns"
-        ],
-        "summary": "Recommend columns to exclude from analysis",
-        "description": "Uses domain-aware LLM analysis to identify columns that should be excluded due to being identifiers, data leakage, or tautological/definitional relationships.",
-        "operationId": "recommend_exclusions_v1_columns_recommend_exclusions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecommendExclusionsRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ColumnExclusionResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/me": {
       "get": {
         "tags": [
@@ -1453,27 +1411,6 @@
         ],
         "title": "AttachPaymentMethodResponse"
       },
-      "ColumnExclusionResult": {
-        "properties": {
-          "excluded_columns": {
-            "items": {
-              "$ref": "#/components/schemas/ExcludedColumn"
-            },
-            "type": "array",
-            "title": "Excluded Columns"
-          },
-          "reasoning": {
-            "type": "string",
-            "title": "Reasoning",
-            "description": "Brief summary of domain analysis and exclusion decisions"
-          }
-        },
-        "type": "object",
-        "required": [
-          "reasoning"
-        ],
-        "title": "ColumnExclusionResult"
-      },
       "ColumnInfo-Input": {
         "properties": {
           "name": {
@@ -1680,126 +1617,6 @@
         ],
         "title": "CorrelationEntry"
       },
-      "CreateApiKeyRequest": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name",
-            "default": "default"
-          },
-          "expires_in_days": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires In Days"
-          }
-        },
-        "type": "object",
-        "title": "CreateApiKeyRequest"
-      },
-      "CreateApiKeyResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "API key UUID"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "description": "Key name"
-          },
-          "key": {
-            "type": "string",
-            "title": "Key",
-            "description": "The API key value (shown only once \u2014 store it securely)"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At",
-            "description": "When the key was created"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At",
-            "description": "When the key expires (null = never)"
-          },
-          "organization_id": {
-            "type": "string",
-            "title": "Organization Id",
-            "description": "Organization UUID the key belongs to"
-          },
-          "tier": {
-            "type": "string",
-            "title": "Tier",
-            "description": "Current subscription tier"
-          },
-          "credits": {
-            "type": "integer",
-            "title": "Credits",
-            "description": "Available credits"
-          },
-          "stripe_publishable_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stripe Publishable Key",
-            "description": "Stripe publishable key for client-side payment method tokenization"
-          },
-          "stripe_customer_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stripe Customer Id",
-            "description": "Stripe customer ID"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "key",
-          "created_at",
-          "expires_at",
-          "organization_id",
-          "tier",
-          "credits",
-          "stripe_publishable_key",
-          "stripe_customer_id"
-        ],
-        "title": "CreateApiKeyResponse"
-      },
       "DashboardPageUrl": {
         "properties": {
           "url": {
@@ -2004,32 +1821,6 @@
           "limits"
         ],
         "title": "EstimateResponse"
-      },
-      "ExcludedColumn": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "description": "Exact column name from the dataset"
-          },
-          "reason": {
-            "type": "string",
-            "title": "Reason",
-            "description": "Category: 'identifier', 'leakage', or 'tautological'"
-          },
-          "explanation": {
-            "type": "string",
-            "title": "Explanation",
-            "description": "One-sentence explanation of why this column is excluded"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "reason",
-          "explanation"
-        ],
-        "title": "ExcludedColumn"
       },
       "FeatureImportance": {
         "properties": {
@@ -2614,59 +2405,6 @@
           "stripe_payment_id"
         ],
         "title": "PurchaseCreditsResponse"
-      },
-      "RecommendExclusionsRequest": {
-        "properties": {
-          "columns": {
-            "items": {
-              "$ref": "#/components/schemas/ColumnInfo-Input"
-            },
-            "type": "array",
-            "title": "Columns",
-            "description": "Column metadata from the dataset"
-          },
-          "target_column": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Column",
-            "description": "Target column, if already selected"
-          },
-          "dataset_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dataset Title",
-            "description": "Dataset title for context"
-          },
-          "dataset_description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dataset Description",
-            "description": "Dataset description for context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "columns"
-        ],
-        "title": "RecommendExclusionsRequest"
       },
       "ResultsResponse": {
         "properties": {
