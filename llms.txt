@@ -254,7 +254,7 @@ curl -X POST https://disco.leap-labs.com/api/data/upload/direct \
 # -> {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
 ```
 
-Full HTTP API reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/http-api.md
+OpenAPI spec: https://disco.leap-labs.com/.well-known/openapi.json
 
 ## MCP Server
 
@@ -401,7 +401,6 @@ Supported formats: CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 
 - API keys: https://disco.leap-labs.com/developers
 - Python SDK on PyPI: https://pypi.org/project/discovery-engine-api/
 - Python SDK reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/python-sdk.md
-- HTTP API reference: https://github.com/leap-laboratories/discovery-engine/blob/main/docs/http-api.md
 - Agent/MCP skill file: https://github.com/leap-laboratories/discovery-engine/blob/main/SKILL.md
 - OpenAPI spec: https://disco.leap-labs.com/.well-known/openapi.json
 - MCP manifest: https://disco.leap-labs.com/.well-known/mcp.json

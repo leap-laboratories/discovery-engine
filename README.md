@@ -291,7 +291,7 @@ Disco isn't a replacement for EDA or AutoML — it finds the patterns those tool
 - [API keys](https://disco.leap-labs.com/developers)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
 - [Python SDK reference](docs/python-sdk.md)
-- [HTTP API reference](docs/http-api.md)
+- [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
 - [Agent / MCP docs](SKILL.md)
 - [LLM-friendly reference](llms.txt)
 - [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
