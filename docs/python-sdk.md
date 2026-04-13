@@ -125,7 +125,7 @@ result = await engine.discover(
 
 ### Running in the Background
 
-Runs take 3–15 minutes. While waiting, the SDK logs progress automatically:
+Runs take a few minutes. While waiting, the SDK logs progress automatically:
 
 ```
 Waiting for run abc123 to complete...

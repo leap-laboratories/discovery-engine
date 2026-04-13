@@ -69,7 +69,7 @@ for pattern in result.patterns:
 print(f"Explore: {result.report_url}")
 ```
 
-Runs take 3–15 minutes. `discover()` polls automatically and logs progress — queue position, estimated wait, current pipeline step, and ETA. For background runs, see [Running asynchronously](#running-asynchronously).
+Runs take a few minutes. `discover()` polls automatically and logs progress — queue position, estimated wait, current pipeline step, and ETA. For background runs, see [Running asynchronously](#running-asynchronously).
 
 → [Full Python SDK reference](docs/python-sdk.md) · [Example notebook](notebooks/quickstart.ipynb)
 
@@ -182,7 +182,7 @@ await engine.discover(
 
 ## Running asynchronously
 
-Runs take 3–15 minutes. For agent workflows or scripts that do other work in parallel:
+Runs take a few minutes. For agent workflows or scripts that do other work in parallel:
 
 ```python
 # Submit without waiting
