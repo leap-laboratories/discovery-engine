@@ -46,7 +46,7 @@ Add to your MCP config:
 | `discovery_analyze` | Submit a dataset for analysis using a `file_ref` from `discovery_upload`. Returns a `run_id`. |
 | `discovery_status` | Poll a running analysis by `run_id`. |
 | `discovery_get_results` | Fetch completed results: patterns, p-values, citations, feature importance. |
-| `discovery_estimate` | Estimate cost and time before committing to a run. |
+| `discovery_estimate` | Estimate the credit cost before committing to a run. |
 
 #### Account management
 
@@ -67,12 +67,12 @@ Add to your MCP config:
 Analyses take 3–15 minutes. **Do not block** — submit, continue other work, poll for completion.
 
 ```
-1. discovery_estimate     → Check cost/time (always do this for private runs)
+1. discovery_estimate     → Check credit cost (always do this for private runs)
 2. discovery_upload       → Upload the dataset, get file_ref
 3. discovery_analyze      → Submit for analysis using file_ref, get run_id
 4. discovery_status       → Poll until status is "completed"
                             Returns: status, queue_position, current_step,
-                            estimated_seconds, estimated_wait_seconds
+                            estimated_wait_seconds
 5. discovery_get_results  → Fetch patterns, summary, feature importance
 ```
 
@@ -676,7 +676,7 @@ Requires a payment method on file. See `GET /api/plans` for full plan details.
 
 ## Estimate Before Running
 
-Before submitting a private analysis, estimate the cost and time:
+Before submitting a private analysis, estimate the credit cost:
 
 ```python
 estimate = await engine.estimate(
@@ -713,7 +713,6 @@ class EngineResult:
     queue_position: int | None                     # Position in queue when pending (1 = next up)
     current_step: str | None                       # Active pipeline step (preprocessing, training, interpreting, reporting)
     current_step_message: str | None               # Human-readable description of the current step
-    estimated_seconds: int | None                  # Estimated total processing time in seconds
     estimated_wait_seconds: int | None             # Estimated queue wait time in seconds (pending only)
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report

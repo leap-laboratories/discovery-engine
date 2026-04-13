@@ -218,7 +218,7 @@ Disco is available as an MCP server — no local install required.
 }
 ```
 
-Tools: `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery_status`, `discovery_get_results`, plus account management tools.
+Tools: `discovery_list_plans`, `discovery_estimate`, `discovery_upload`, `discovery_analyze`, `discovery_status`, `discovery_get_results`, `discovery_account`, `discovery_signup`, `discovery_signup_verify`, `discovery_login`, `discovery_login_verify`, `discovery_add_payment_method`, `discovery_subscribe`, `discovery_purchase_credits`.
 
 → [Full agent skill file](SKILL.md)
 

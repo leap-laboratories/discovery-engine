@@ -255,10 +255,13 @@ estimate = await engine.estimate(
     analysis_depth=2,
     visibility="private",
 )
-# estimate["cost"]["credits"]               -> 55
-# estimate["cost"]["price_usd"]             -> 5.5
-# estimate["account"]["sufficient"]         -> True/False
-# estimate["limits"]["max_analysis_depth"]  -> 23  (num_columns - 2)
+# estimate["cost"]["credits"]                    -> 55
+# estimate["cost"]["price_usd"]                  -> 5.5
+# estimate["limits"]["max_file_size_mb"]          -> 5120
+# estimate["limits"]["max_analysis_depth"]        -> 23  (num_columns - 2)
+# estimate["limits"]["supported_formats"]         -> ["csv", "parquet", ...]
+# estimate["account"]["available_credits"]        -> 60   (only if authenticated)
+# estimate["account"]["sufficient"]               -> True/False
 ```
 
 Manage credits and plans at [disco.leap-labs.com/account](https://disco.leap-labs.com/account).
@@ -269,11 +272,14 @@ Manage credits and plans at [disco.leap-labs.com/account](https://disco.leap-lab
 ```python
 # Check your account — plan, credits, payment method
 account = await engine.get_account()
-# account["plan"]                    -> "free_tier"
-# account["credits"]["total"]        -> 10
-# account["credits"]["used"]         -> 3
+# account["plan"]["tier"]              -> "free_tier"
+# account["plan"]["name"]              -> "Explorer"
+# account["plan"]["monthly_credits"]   -> 10
+# account["credits"]["subscription"]   -> 10
+# account["credits"]["purchased"]      -> 0
+# account["credits"]["total"]          -> 10
 # account["payment_method"]["on_file"] -> False
-# account["stripe_publishable_key"]  -> "pk_live_..."
+# account["stripe_publishable_key"]    -> "pk_live_..."
 
 # Attach a payment method (Stripe PaymentMethod ID — see below)
 result = await engine.add_payment_method("pm_...")
@@ -382,7 +388,6 @@ class EngineResult:
     queue_position: int | None                     # Position in queue when pending (1 = next up)
     current_step: str | None                       # Active pipeline step (preprocessing, training, interpreting, reporting)
     current_step_message: str | None               # Human-readable description of the current step
-    estimated_seconds: int | None                  # Estimated total processing time in seconds
     estimated_wait_seconds: int | None             # Estimated queue wait time in seconds (pending only)
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report

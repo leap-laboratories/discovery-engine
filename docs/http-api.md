@@ -37,7 +37,7 @@ Content-Type: application/json
 
 **Responses:**
 - `201` — `{"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}`
-- `400` — Invalid or expired code
+- `422` — Invalid or expired code
 
 ### POST /api/login
 
@@ -132,10 +132,12 @@ Authorization: Bearer disco_...
 **Response:** `200`
 ```json
 {
-  "plan": "free_tier",
-  "tier": "free_tier",
-  "credits": {"total": 10, "used": 3},
-  "payment_method": {"on_file": false},
+  "user_id": "...",
+  "email": "you@example.com",
+  "organization": {"id": "...", "name": "My Org"},
+  "plan": {"tier": "free_tier", "name": "Explorer", "monthly_credits": 10, "price_usd": 0},
+  "credits": {"subscription": 10, "purchased": 0, "total": 10},
+  "payment_method": {"on_file": false, "card_last4": null, "card_brand": null},
   "stripe_publishable_key": "pk_live_...",
   "stripe_customer_id": "cus_..."
 }
@@ -165,8 +167,8 @@ Content-Type: application/json
 ```json
 {
   "cost": {"credits": 55, "price_usd": 5.5},
-  "limits": {"max_analysis_depth": 23},
-  "account": {"sufficient": true}
+  "limits": {"max_file_size_mb": 5120, "max_analysis_depth": 23, "supported_formats": ["csv", "parquet", "tsv", "xlsx", "json", "arff", "feather"]},
+  "account": {"available_credits": 60, "sufficient": true}
 }
 ```
 
@@ -380,7 +382,6 @@ Authorization: Bearer disco_...
   "status": "processing",
   "current_step": "training",
   "current_step_message": "Modelling data...",
-  "estimated_seconds": 360,
   "queue_position": null
 }
 ```
