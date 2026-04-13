@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Disco API",
-    "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is validated on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n## Agent workflow\n\n**Step 1 \u2014 Get an API key** (once):\n- `POST /api/signup` with `{\"email\": \"...\"}` \u2192 sends a 6-digit code\n- `POST /api/signup/verify` with `{\"email\": \"...\", \"code\": \"...\"}` \u2192 returns `{\"key\": \"disco_...\"}`\n- Use this key as `Authorization: Bearer disco_...` for all subsequent requests\n\n**Step 2 \u2014 Estimate cost** (optional but recommended):\n- `POST /api/estimate` with file size, column count, depth, visibility\n- Returns credit cost and time estimate\n\n**Step 3 \u2014 Upload data** (pick one):\n- *From URL:* `POST /api/data/upload/from-url` with `{\"url\": \"https://...\"}` \u2192 returns `file` and `columns`\n- *Direct (base64):* `POST /api/data/upload/direct` with `{\"fileName\": \"data.csv\", \"content\": \"<base64>\"}` \u2192 returns `file` and `columns`. Max 50MB.\n- *Presign flow (for large files):* `POST /api/data/upload/presign` \u2192 PUT file to `uploadUrl` \u2192 `POST /api/data/upload/finalize`\n\n**Step 4 \u2014 Run analysis:**\n- `POST /api/reports/create-from-upload` with `file`, `columns`, and `targetColumn` from step 3 \u2192 returns `{\"run_id\": \"...\"}`\n\n**Step 5 \u2014 Poll for results:**\n- `GET /api/runs/{run_id}/results` \u2014 poll every 10s until `status` is `\"completed\"` (time varies with dataset size and depth)\n- Response includes `patterns[]` with conditions, p-values, effect sizes, novelty scores, and citations\n\n## Billing\n\nPublic runs are free. If the user needs more credits or a paid plan, send them to https://disco.leap-labs.com/account to upgrade.\n\n## Authentication\n\n`disco_` API keys via `Authorization: Bearer disco_...` header. Get a key via signup or at https://disco.leap-labs.com/developers.\n\n## SDK\n\n`pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
+    "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is validated on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n## Agent workflow\n\n**Step 1 \u2014 Get an API key** (once):\n- `POST /api/signup` with `{\"email\": \"...\"}` \u2192 sends a 6-digit code\n- `POST /api/signup/verify` with `{\"email\": \"...\", \"code\": \"...\"}` \u2192 returns `{\"key\": \"disco_...\"}`\n- Use this key as `Authorization: Bearer disco_...` for all subsequent requests\n\n**Step 2 \u2014 Estimate cost** (optional but recommended):\n- `POST /api/estimate` with file size, column count, depth, visibility\n- Returns credit cost and time estimate\n\n**Step 3 \u2014 Upload data** (pick one):\n- *From URL:* `POST /api/data/upload/from-url` with `{\"url\": \"https://...\"}` \u2192 returns `file` and `columns`\n- *Direct (base64):* `POST /api/data/upload/direct` with `{\"fileName\": \"data.csv\", \"content\": \"<base64>\"}` \u2192 returns `file` and `columns`. Max 50MB.\n- *Presign flow (for large files):* `POST /api/data/upload/presign` \u2192 PUT file to `uploadUrl` \u2192 `POST /api/data/upload/finalize`\n\n**Step 4 \u2014 Run analysis:**\n- `POST /api/run-analysis` with `file`, `columns`, and `targetColumn` from step 3 \u2192 returns `{\"run_id\": \"...\"}`\n\n**Step 5 \u2014 Poll for results:**\n- `GET /api/runs/{run_id}/results` \u2014 poll every 10s until `status` is `\"completed\"` (time varies with dataset size and depth)\n- Response includes `patterns[]` with conditions, p-values, effect sizes, novelty scores, and citations\n\n## Billing\n\nPublic runs are free. If the user needs more credits or a paid plan, send them to https://disco.leap-labs.com/account to upgrade.\n\n## Authentication\n\n`disco_` API keys via `Authorization: Bearer disco_...` header. Get a key via signup or at https://disco.leap-labs.com/developers.\n\n## SDK\n\n`pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
     "version": "1.0.0"
   },
   "servers": [
@@ -517,7 +517,7 @@
           "upload"
         ],
         "summary": "Finalize file upload",
-        "description": "After uploading to the presigned URL, call this to process the file. Returns columns and metadata needed for /api/reports/create-from-upload.",
+        "description": "After uploading to the presigned URL, call this to process the file. Returns columns and metadata needed for /api/run-analysis.",
         "operationId": "finalize_upload",
         "requestBody": {
           "required": true,
@@ -721,7 +721,7 @@
           "upload"
         ],
         "summary": "Upload from URL",
-        "description": "Download a file from a URL and process it. Combines presign + upload + finalize in one step. Returns columns and metadata for /api/reports/create-from-upload.",
+        "description": "Download a file from a URL and process it. Combines presign + upload + finalize in one step. Returns columns and metadata for /api/run-analysis.",
         "operationId": "upload_from_url",
         "requestBody": {
           "required": true,
@@ -797,135 +797,6 @@
                     },
                     "issues": {
                       "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/reports/create-from-upload": {
-      "post": {
-        "tags": [
-          "discover"
-        ],
-        "summary": "Start a discovery analysis",
-        "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results.",
-        "operationId": "create_analysis",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "file",
-                  "columns",
-                  "targetColumn"
-                ],
-                "properties": {
-                  "file": {
-                    "type": "object",
-                    "required": [
-                      "key",
-                      "name",
-                      "size",
-                      "fileHash"
-                    ],
-                    "description": "File metadata from upload/finalize or upload/from-url",
-                    "properties": {
-                      "key": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "size": {
-                        "type": "integer"
-                      },
-                      "fileHash": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "columns": {
-                    "type": "array",
-                    "description": "Column metadata from upload/finalize or upload/from-url",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "name": {
-                          "type": "string"
-                        },
-                        "type": {
-                          "type": "string"
-                        },
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        }
-                      }
-                    }
-                  },
-                  "targetColumn": {
-                    "type": "string",
-                    "description": "Name of the column to predict/explain"
-                  },
-                  "analysisDepth": {
-                    "type": "integer",
-                    "default": 2,
-                    "description": "Higher = deeper analysis, more credits"
-                  },
-                  "isPublic": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Public runs are free but results are published"
-                  },
-                  "title": {
-                    "type": "string",
-                    "nullable": true
-                  },
-                  "description": {
-                    "type": "string",
-                    "nullable": true
-                  },
-                  "useLlms": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable LLM summaries, literature context, novelty assessment. Slower and more expensive. Public runs always use LLMs."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Analysis submitted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "run_id": {
-                      "type": "string",
-                      "description": "Poll GET /api/runs/{run_id}/results until status is completed"
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "pending"
-                      ]
                     }
                   }
                 }
@@ -1096,6 +967,135 @@
             }
           }
         }
+      }
+    },
+    "/api/run-analysis": {
+      "post": {
+        "tags": [
+          "discover"
+        ],
+        "summary": "Start a discovery analysis",
+        "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results.",
+        "operationId": "create_analysis",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "columns",
+                  "targetColumn"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name",
+                      "size",
+                      "fileHash"
+                    ],
+                    "description": "File metadata from upload/finalize or upload/from-url",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "size": {
+                        "type": "integer"
+                      },
+                      "fileHash": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "columns": {
+                    "type": "array",
+                    "description": "Column metadata from upload/finalize or upload/from-url",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  },
+                  "targetColumn": {
+                    "type": "string",
+                    "description": "Name of the column to predict/explain"
+                  },
+                  "analysisDepth": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Higher = deeper analysis, more credits"
+                  },
+                  "isPublic": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Public runs are free but results are published"
+                  },
+                  "title": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "useLlms": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable LLM summaries, literature context, novelty assessment. Slower and more expensive. Public runs always use LLMs."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Analysis submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run_id": {
+                      "type": "string",
+                      "description": "Poll GET /api/runs/{run_id}/results until status is completed"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     }
   },

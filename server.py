@@ -630,7 +630,7 @@ async def discovery_analyze(
 
     result = await _dashboard_request(
         "POST",
-        "/api/reports/create-from-upload",
+        "/api/run-analysis",
         api_key=resolved_key,
         json_body=run_payload,
     )

@@ -221,7 +221,7 @@ curl -X POST https://disco.leap-labs.com/api/data/upload/finalize \
 # -> {"ok": true, "file": {...}, "columns": [...], "rowCount": 5000}
 
 # 4. Submit analysis
-curl -X POST https://disco.leap-labs.com/api/reports/create-from-upload \
+curl -X POST https://disco.leap-labs.com/api/run-analysis \
   -H "Authorization: Bearer disco_..." \
   -H "Content-Type: application/json" \
   -d '{
