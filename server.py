@@ -658,7 +658,7 @@ async def discovery_status(run_id: str, api_key: str | None = None) -> str:
     - current_step: active pipeline step (preprocessing, training, interpreting, reporting)
     - estimated_wait_seconds: estimated queue wait time in seconds (pending only)
 
-    Poll this after calling discovery_analyze — runs typically take 3–15 minutes.
+    Poll this after calling discovery_analyze.
     Use discovery_get_results to fetch full results once status is "completed".
 
     Args:

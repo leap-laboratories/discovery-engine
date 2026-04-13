@@ -1,2782 +1,2467 @@
 {
-    "openapi": "3.1.0",
-    "info": {
-        "title": "Disco API",
-        "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is validated on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n## Agent workflow\n\n**Step 1 — Get an API key** (once):\n- `POST /api/signup` with `{\"email\": \"...\"}` → sends a 6-digit code\n- `POST /api/signup/verify` with `{\"email\": \"...\", \"code\": \"...\"}` → returns `{\"key\": \"disco_...\"}`\n- Use this key as `Authorization: Bearer disco_...` for all subsequent requests\n\n**Step 2 — Estimate cost** (optional but recommended):\n- `POST /api/estimate` with file size, column count, depth, visibility\n- Returns credit cost and time estimate\n\n**Step 3 — Upload data** (pick one):\n- *From URL:* `POST /api/data/upload/from-url` with `{\"url\": \"https://...\"}` → returns `file` and `columns`\n- *Direct (base64):* `POST /api/data/upload/direct` with `{\"fileName\": \"data.csv\", \"content\": \"<base64>\"}` → returns `file` and `columns`. Max 50MB.\n- *Presign flow (for large files):* `POST /api/data/upload/presign` → PUT file to `uploadUrl` → `POST /api/data/upload/finalize`\n\n**Step 4 — Run analysis:**\n- `POST /api/reports/create-from-upload` with `file`, `columns`, and `targetColumn` from step 3 → returns `{\"run_id\": \"...\"}`\n\n**Step 5 — Poll for results:**\n- `GET /api/runs/{run_id}/results` — poll every 10s until `status` is `\"completed\"` (typically 3–15 min)\n- Response includes `patterns[]` with conditions, p-values, effect sizes, novelty scores, and citations\n\n## Billing\n\nPublic runs are free. If the user needs more credits or a paid plan, send them to https://disco.leap-labs.com/account to upgrade.\n\n## Authentication\n\n`disco_` API keys via `Authorization: Bearer disco_...` header. Get a key via signup or at https://disco.leap-labs.com/developers.\n\n## SDK\n\n`pip install discovery-engine-api` — [Full docs](https://disco.leap-labs.com/llms-full.txt)",
-        "version": "1.0.0"
-    },
-    "servers": [
-        {
-            "url": "https://disco.leap-labs.com"
-        }
-    ],
-    "paths": {
-        "/api/runs/{run_id}/results": {
-            "get": {
-                "tags": [
-                    "results"
-                ],
-                "summary": "Get complete analysis results",
-                "description": "Returns analysis results including patterns, p-values, novelty scores, and citations. Poll until status is \"completed\". If \"failed\", check error_message.",
-                "operationId": "get_results_v1_runs__run_id__results_get",
-                "parameters": [
-                    {
-                        "name": "run_id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid",
-                            "description": "The ID of the run",
-                            "title": "Run Id"
-                        },
-                        "description": "The ID of the run"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ResultsResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/api-keys": {
-            "get": {
-                "tags": [
-                    "api-keys"
-                ],
-                "summary": "List API keys",
-                "description": "List all API keys for the current user. Key values are not returned \u2014 only metadata.",
-                "operationId": "list_api_keys_v1_api_keys_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "items": {
-                                        "$ref": "#/components/schemas/ApiKeyInfo"
-                                    },
-                                    "type": "array",
-                                    "title": "Response List Api Keys V1 Api Keys Get"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/api-keys/{key_id}": {
-            "delete": {
-                "tags": [
-                    "api-keys"
-                ],
-                "summary": "Delete API key",
-                "description": "Permanently revoke an API key. This action cannot be undone.",
-                "operationId": "delete_api_key_v1_api_keys__key_id__delete",
-                "parameters": [
-                    {
-                        "name": "key_id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid",
-                            "description": "The ID of the API key to delete",
-                            "title": "Key Id"
-                        },
-                        "description": "The ID of the API key to delete"
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Successful Response"
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/columns/recommend-exclusions": {
-            "post": {
-                "tags": [
-                    "columns"
-                ],
-                "summary": "Recommend columns to exclude from analysis",
-                "description": "Uses domain-aware LLM analysis to identify columns that should be excluded due to being identifiers, data leakage, or tautological/definitional relationships.",
-                "operationId": "recommend_exclusions_v1_columns_recommend_exclusions_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/RecommendExclusionsRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ColumnExclusionResult"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/me": {
-            "get": {
-                "tags": [
-                    "me"
-                ],
-                "summary": "Get current user",
-                "description": "Returns the current authenticated user's profile and session information.",
-                "operationId": "me_v1_me_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {}
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/me/organizations": {
-            "get": {
-                "tags": [
-                    "me"
-                ],
-                "summary": "List my organizations",
-                "description": "Returns all organizations the current user belongs to. Use the returned `id` values as the `X-Organization-ID` header for endpoints that require it.",
-                "operationId": "get_my_organizations_v1_me_organizations_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {}
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/me/runs": {
-            "get": {
-                "tags": [
-                    "me"
-                ],
-                "summary": "List my runs",
-                "description": "Returns all analysis runs for the current user with their current status, job info, and report links. Use this to monitor running analyses or find past results.",
-                "operationId": "get_my_runs_v1_me_runs_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {}
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/plans": {
-            "get": {
-                "tags": [
-                    "plans"
-                ],
-                "summary": "List available plans and pricing",
-                "description": "Public endpoint \u2014 no authentication required. Returns all available subscription plans with pricing, credit allowances, and feature lists. Credits cost $0.10 each. Credit packs of 100 ($10) are available on all plans. Use this to show users their options before they sign up or upgrade.",
-                "operationId": "list_plans_v1_plans_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PlansResponse"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/estimate": {
-            "post": {
-                "tags": [
-                    "estimate"
-                ],
-                "summary": "Estimate credit cost for an analysis",
-                "description": "Estimate the credit cost of an analysis before running it. Returns cost, limits, and (if authenticated) whether you have sufficient credits. No auth required.",
-                "operationId": "estimate_v1_estimate_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/EstimateRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/EstimateResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/account": {
-            "get": {
-                "tags": [
-                    "account"
-                ],
-                "summary": "Get account status",
-                "description": "Returns current plan, available credits (subscription + purchased), payment method status, and Stripe identifiers. Use this to check credit balance before running a private analysis.",
-                "operationId": "get_account_v1_account_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/AccountResponse"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/account/credits/purchase": {
-            "post": {
-                "tags": [
-                    "account"
-                ],
-                "summary": "Purchase credit packs",
-                "description": "Purchase Disco credits using a stored payment method. Credits cost $0.10 each, sold in packs of 100 ($10/pack). Requires a payment method on file (attach one via `POST /api/account/payment-method`). Returns 402 if no payment method is attached.",
-                "operationId": "purchase_credits_v1_account_credits_purchase_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PurchaseCreditsRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PurchaseCreditsResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/account/subscribe": {
-            "post": {
-                "tags": [
-                    "account"
-                ],
-                "summary": "Subscribe to or change plan",
-                "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 50 credits/mo), Team ($199, 200 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /api/plans` to see all plan details.",
-                "operationId": "subscribe_v1_account_subscribe_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/SubscribeRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/SubscribeResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/signup": {
-            "post": {
-                "tags": [
-                    "signup"
-                ],
-                "summary": "Initiate account creation",
-                "description": "Zero-touch signup. Sends a 6-digit code to the email. Follow up with POST /api/signup/verify to get an API key. Returns 409 if already registered.",
-                "operationId": "signup_v1_signup_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/SignupRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {}
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/signup/verify": {
-            "post": {
-                "tags": [
-                    "signup"
-                ],
-                "summary": "Verify email and complete account creation",
-                "description": "Complete signup by submitting the verification code sent to the email address. Creates the account and returns a ready-to-use API key.\n\nCodes expire after 15 minutes and can only be used once.",
-                "operationId": "verify_signup_v1_signup_verify_post",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/VerifyRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "201": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/SignupResponse"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/HTTPValidationError"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/data/upload/presign": {
-            "post": {
-                "tags": ["upload"],
-                "summary": "Get presigned upload URL",
-                "description": "Returns a presigned URL for uploading a file directly to storage. Use the returned uploadUrl to PUT your file, then call /api/data/upload/finalize.",
-                "operationId": "presign_upload",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["fileName", "contentType", "fileSize"],
-                                "properties": {
-                                    "fileName": {"type": "string", "description": "Name of the file"},
-                                    "contentType": {"type": "string", "description": "MIME type of the file (e.g. text/csv)"},
-                                    "fileSize": {"type": "integer", "description": "File size in bytes"}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Presigned upload URL and token",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "uploadUrl": {"type": "string", "description": "PUT your file to this URL"},
-                                        "key": {"type": "string", "description": "Storage key"},
-                                        "bucket": {"type": "string"},
-                                        "expiresIn": {"type": "integer", "description": "URL expiry in seconds"},
-                                        "uploadToken": {"type": "string", "description": "JWT token — pass to /api/data/upload/finalize"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [{"BearerAuth": []}]
-            }
-        },
-        "/api/data/upload/finalize": {
-            "post": {
-                "tags": ["upload"],
-                "summary": "Finalize file upload",
-                "description": "After uploading to the presigned URL, call this to process the file. Returns columns and metadata needed for /api/reports/create-from-upload.",
-                "operationId": "finalize_upload",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["key", "uploadToken"],
-                                "properties": {
-                                    "key": {"type": "string", "description": "Storage key from presign response"},
-                                    "uploadToken": {"type": "string", "description": "JWT token from presign response"}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Processed file metadata and columns",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "ok": {"type": "boolean"},
-                                        "file": {
-                                            "type": "object",
-                                            "properties": {
-                                                "key": {"type": "string"},
-                                                "name": {"type": "string"},
-                                                "size": {"type": "integer"},
-                                                "fileHash": {"type": "string"}
-                                            }
-                                        },
-                                        "columns": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "name": {"type": "string"},
-                                                    "type": {"type": "string"},
-                                                    "enabled": {"type": "boolean"},
-                                                    "description": {"type": "string", "nullable": true}
-                                                }
-                                            }
-                                        },
-                                        "rowCount": {"type": "integer"},
-                                        "issues": {"type": "object"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [{"BearerAuth": []}]
-            }
-        },
-        "/api/data/upload/direct": {
-            "post": {
-                "tags": ["upload"],
-                "summary": "Upload file directly (base64)",
-                "description": "Upload a file as base64 in a JSON body. Handles storage and processing in one step. Max 50MB. For larger files, use presign flow or from-url.",
-                "operationId": "upload_direct",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["fileName", "content"],
-                                "properties": {
-                                    "fileName": {"type": "string", "description": "File name with extension (e.g. data.csv, dataset.xlsx)"},
-                                    "content": {"type": "string", "format": "byte", "description": "Base64-encoded file content"}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Processed file metadata and columns (same as /api/data/upload/finalize)",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "ok": {"type": "boolean"},
-                                        "file": {
-                                            "type": "object",
-                                            "properties": {
-                                                "key": {"type": "string"},
-                                                "name": {"type": "string"},
-                                                "size": {"type": "integer"},
-                                                "fileHash": {"type": "string"}
-                                            }
-                                        },
-                                        "columns": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "name": {"type": "string"},
-                                                    "type": {"type": "string"},
-                                                    "enabled": {"type": "boolean"},
-                                                    "description": {"type": "string", "nullable": true}
-                                                }
-                                            }
-                                        },
-                                        "rowCount": {"type": "integer"},
-                                        "issues": {"type": "object"}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "413": {"description": "File too large (max 50MB for direct upload)"}
-                },
-                "security": [{"BearerAuth": []}]
-            }
-        },
-        "/api/data/upload/from-url": {
-            "post": {
-                "tags": ["upload"],
-                "summary": "Upload from URL",
-                "description": "Download a file from a URL and process it. Combines presign + upload + finalize in one step. Returns columns and metadata for /api/reports/create-from-upload.",
-                "operationId": "upload_from_url",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["url"],
-                                "properties": {
-                                    "url": {"type": "string", "format": "uri", "description": "Public URL of the dataset to download"}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Processed file metadata and columns",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "ok": {"type": "boolean"},
-                                        "file": {
-                                            "type": "object",
-                                            "properties": {
-                                                "key": {"type": "string"},
-                                                "name": {"type": "string"},
-                                                "size": {"type": "integer"},
-                                                "fileHash": {"type": "string"}
-                                            }
-                                        },
-                                        "columns": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "name": {"type": "string"},
-                                                    "type": {"type": "string"},
-                                                    "enabled": {"type": "boolean"},
-                                                    "description": {"type": "string", "nullable": true}
-                                                }
-                                            }
-                                        },
-                                        "rowCount": {"type": "integer"},
-                                        "issues": {"type": "object"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [{"BearerAuth": []}]
-            }
-        },
-        "/api/reports/create-from-upload": {
-            "post": {
-                "tags": ["discover"],
-                "summary": "Start a discovery analysis",
-                "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results.",
-                "operationId": "create_analysis",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["file", "columns", "targetColumn"],
-                                "properties": {
-                                    "file": {
-                                        "type": "object",
-                                        "required": ["key", "name", "size", "fileHash"],
-                                        "description": "File metadata from upload/finalize or upload/from-url",
-                                        "properties": {
-                                            "key": {"type": "string"},
-                                            "name": {"type": "string"},
-                                            "size": {"type": "integer"},
-                                            "fileHash": {"type": "string"}
-                                        }
-                                    },
-                                    "columns": {
-                                        "type": "array",
-                                        "description": "Column metadata from upload/finalize or upload/from-url",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "type": {"type": "string"},
-                                                "enabled": {"type": "boolean"},
-                                                "description": {"type": "string", "nullable": true}
-                                            }
-                                        }
-                                    },
-                                    "targetColumn": {"type": "string", "description": "Name of the column to predict/explain"},
-                                    "analysisDepth": {"type": "integer", "default": 2, "description": "Higher = deeper analysis, more credits"},
-                                    "isPublic": {"type": "boolean", "default": true, "description": "Public runs are free but results are published"},
-                                    "title": {"type": "string", "nullable": true},
-                                    "description": {"type": "string", "nullable": true},
-                                    "useLlms": {"type": "boolean", "default": false, "description": "Enable LLM summaries, literature context, novelty assessment. Slower and more expensive. Public runs always use LLMs."}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Analysis submitted",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "run_id": {"type": "string", "description": "Poll GET /api/runs/{run_id}/results until status is completed"},
-                                        "status": {"type": "string", "enum": ["pending"]}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [{"BearerAuth": []}]
-            }
-        },
-        "/api/login": {
-            "post": {
-                "tags": ["auth"],
-                "summary": "Login to existing account",
-                "description": "Send a verification code to an existing account's email. Follow up with POST /api/login/verify to get an API key.",
-                "operationId": "login",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["email"],
-                                "properties": {
-                                    "email": {"type": "string", "format": "email"}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Verification code sent",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {"type": "string", "enum": ["verification_required"]},
-                                        "email": {"type": "string"}
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "404": {"description": "No account found for this email"}
-                }
-            }
-        },
-        "/api/login/verify": {
-            "post": {
-                "tags": ["auth"],
-                "summary": "Complete login with verification code",
-                "description": "Submit the code sent to email. Returns a new API key. Codes expire after 15 minutes.",
-                "operationId": "login_verify",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["email", "code"],
-                                "properties": {
-                                    "email": {"type": "string", "format": "email"},
-                                    "code": {"type": "string", "description": "6-digit verification code from email"}
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Login successful — API key returned",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "key": {"type": "string", "description": "API key (disco_...) — store securely"},
-                                        "key_id": {"type": "string"},
-                                        "organization_id": {"type": "string"},
-                                        "tier": {"type": "string"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-    "components": {
-        "schemas": {
-            "AccountCredits": {
-                "properties": {
-                    "subscription": {
-                        "type": "integer",
-                        "title": "Subscription",
-                        "description": "Credits from subscription allowance"
-                    },
-                    "purchased": {
-                        "type": "integer",
-                        "title": "Purchased",
-                        "description": "Credits from pack purchases"
-                    },
-                    "total": {
-                        "type": "integer",
-                        "title": "Total",
-                        "description": "Total available credits"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "subscription",
-                    "purchased",
-                    "total"
-                ],
-                "title": "AccountCredits"
-            },
-            "AccountOrganization": {
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "title": "Id",
-                        "description": "Organization UUID"
-                    },
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Organization name"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "id",
-                    "name"
-                ],
-                "title": "AccountOrganization"
-            },
-            "AccountPaymentMethod": {
-                "properties": {
-                    "on_file": {
-                        "type": "boolean",
-                        "title": "On File",
-                        "description": "Whether a payment method is attached"
-                    },
-                    "card_last4": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Card Last4",
-                        "description": "Last 4 digits of card"
-                    },
-                    "card_brand": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Card Brand",
-                        "description": "Card brand (visa, mastercard, etc.)"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "on_file",
-                    "card_last4",
-                    "card_brand"
-                ],
-                "title": "AccountPaymentMethod"
-            },
-            "AccountPlan": {
-                "properties": {
-                    "tier": {
-                        "type": "string",
-                        "title": "Tier",
-                        "description": "Current plan tier ID"
-                    },
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Human-readable plan name"
-                    },
-                    "monthly_credits": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Monthly Credits",
-                        "description": "Credits included per month"
-                    },
-                    "price_usd": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Price Usd",
-                        "description": "Monthly price in USD"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "tier",
-                    "name",
-                    "monthly_credits",
-                    "price_usd"
-                ],
-                "title": "AccountPlan"
-            },
-            "AccountResponse": {
-                "properties": {
-                    "user_id": {
-                        "type": "string",
-                        "title": "User Id",
-                        "description": "User UUID"
-                    },
-                    "email": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Email",
-                        "description": "User email address"
-                    },
-                    "organization": {
-                        "$ref": "#/components/schemas/AccountOrganization"
-                    },
-                    "plan": {
-                        "$ref": "#/components/schemas/AccountPlan"
-                    },
-                    "credits": {
-                        "$ref": "#/components/schemas/AccountCredits"
-                    },
-                    "payment_method": {
-                        "$ref": "#/components/schemas/AccountPaymentMethod"
-                    },
-                    "stripe_publishable_key": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Stripe Publishable Key",
-                        "description": "Stripe publishable key for client-side payment method tokenization"
-                    },
-                    "stripe_customer_id": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Stripe Customer Id",
-                        "description": "Stripe customer ID"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "user_id",
-                    "email",
-                    "organization",
-                    "plan",
-                    "credits",
-                    "payment_method",
-                    "stripe_publishable_key",
-                    "stripe_customer_id"
-                ],
-                "title": "AccountResponse"
-            },
-            "ApiKeyInfo": {
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "title": "Id",
-                        "description": "API key UUID"
-                    },
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Key name"
-                    },
-                    "created_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "title": "Created At",
-                        "description": "When the key was created"
-                    },
-                    "expires_at": {
-                        "anyOf": [
-                            {
-                                "type": "string",
-                                "format": "date-time"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Expires At",
-                        "description": "When the key expires (null = never)"
-                    },
-                    "last_used_at": {
-                        "anyOf": [
-                            {
-                                "type": "string",
-                                "format": "date-time"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Last Used At",
-                        "description": "Last time this key was used"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "id",
-                    "name",
-                    "created_at",
-                    "expires_at",
-                    "last_used_at"
-                ],
-                "title": "ApiKeyInfo"
-            },
-            "AttachPaymentMethodRequest": {
-                "properties": {
-                    "payment_method_id": {
-                        "type": "string",
-                        "title": "Payment Method Id",
-                        "description": "Stripe payment method token (pm_...)"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "payment_method_id"
-                ],
-                "title": "AttachPaymentMethodRequest"
-            },
-            "AttachPaymentMethodResponse": {
-                "properties": {
-                    "payment_method_attached": {
-                        "type": "boolean",
-                        "title": "Payment Method Attached",
-                        "description": "Whether attachment succeeded"
-                    },
-                    "card_last4": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Card Last4",
-                        "description": "Last 4 digits of the attached card"
-                    },
-                    "card_brand": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Card Brand",
-                        "description": "Card brand (visa, mastercard, etc.)"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "payment_method_attached",
-                    "card_last4",
-                    "card_brand"
-                ],
-                "title": "AttachPaymentMethodResponse"
-            },
-            "ColumnExclusionResult": {
-                "properties": {
-                    "excluded_columns": {
-                        "items": {
-                            "$ref": "#/components/schemas/ExcludedColumn"
-                        },
-                        "type": "array",
-                        "title": "Excluded Columns"
-                    },
-                    "reasoning": {
-                        "type": "string",
-                        "title": "Reasoning",
-                        "description": "Brief summary of domain analysis and exclusion decisions"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "reasoning"
-                ],
-                "title": "ColumnExclusionResult"
-            },
-            "ColumnInfo-Input": {
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Column name"
-                    },
-                    "dtype": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Dtype",
-                        "description": "Data type (e.g., 'integer', 'string', 'float')"
-                    },
-                    "unique_count": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Unique Count",
-                        "description": "Number of distinct values"
-                    },
-                    "null_percentage": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Null Percentage",
-                        "description": "Percentage of null values"
-                    },
-                    "sample_values": {
-                        "anyOf": [
-                            {
-                                "items": {},
-                                "type": "array"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Sample Values",
-                        "description": "Sample values from the column"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "name"
-                ],
-                "title": "ColumnInfo"
-            },
-            "ColumnInfo-Output": {
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Column name"
-                    },
-                    "display_name": {
-                        "type": "string",
-                        "title": "Display Name",
-                        "description": "Display-friendly column name"
-                    },
-                    "type": {
-                        "type": "string",
-                        "title": "Type",
-                        "description": "'continuous' or 'categorical'"
-                    },
-                    "data_type": {
-                        "type": "string",
-                        "title": "Data Type",
-                        "description": "Data type (float, int, string, etc.)"
-                    },
-                    "mean": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Mean"
-                    },
-                    "median": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Median"
-                    },
-                    "std": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Std"
-                    },
-                    "min": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Min"
-                    },
-                    "max": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Max"
-                    },
-                    "mode": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Mode"
-                    },
-                    "approx_unique": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Approx Unique"
-                    },
-                    "null_percentage": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Null Percentage"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "name",
-                    "display_name",
-                    "type",
-                    "data_type"
-                ],
-                "title": "ColumnInfo"
-            },
-            "CorrelationEntry": {
-                "properties": {
-                    "feature_x": {
-                        "type": "string",
-                        "title": "Feature X"
-                    },
-                    "feature_y": {
-                        "type": "string",
-                        "title": "Feature Y"
-                    },
-                    "value": {
-                        "type": "number",
-                        "title": "Value"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "feature_x",
-                    "feature_y",
-                    "value"
-                ],
-                "title": "CorrelationEntry"
-            },
-            "CreateApiKeyRequest": {
-                "properties": {
-                    "name": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Name",
-                        "default": "default"
-                    },
-                    "expires_in_days": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Expires In Days"
-                    }
-                },
-                "type": "object",
-                "title": "CreateApiKeyRequest"
-            },
-            "CreateApiKeyResponse": {
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "title": "Id",
-                        "description": "API key UUID"
-                    },
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Key name"
-                    },
-                    "key": {
-                        "type": "string",
-                        "title": "Key",
-                        "description": "The API key value (shown only once \u2014 store it securely)"
-                    },
-                    "created_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "title": "Created At",
-                        "description": "When the key was created"
-                    },
-                    "expires_at": {
-                        "anyOf": [
-                            {
-                                "type": "string",
-                                "format": "date-time"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Expires At",
-                        "description": "When the key expires (null = never)"
-                    },
-                    "organization_id": {
-                        "type": "string",
-                        "title": "Organization Id",
-                        "description": "Organization UUID the key belongs to"
-                    },
-                    "tier": {
-                        "type": "string",
-                        "title": "Tier",
-                        "description": "Current subscription tier"
-                    },
-                    "credits": {
-                        "type": "integer",
-                        "title": "Credits",
-                        "description": "Available credits"
-                    },
-                    "stripe_publishable_key": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Stripe Publishable Key",
-                        "description": "Stripe publishable key for client-side payment method tokenization"
-                    },
-                    "stripe_customer_id": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Stripe Customer Id",
-                        "description": "Stripe customer ID"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "id",
-                    "name",
-                    "key",
-                    "created_at",
-                    "expires_at",
-                    "organization_id",
-                    "tier",
-                    "credits",
-                    "stripe_publishable_key",
-                    "stripe_customer_id"
-                ],
-                "title": "CreateApiKeyResponse"
-            },
-            "DashboardPageUrl": {
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "title": "Url",
-                        "description": "Direct URL to this dashboard page"
-                    },
-                    "description": {
-                        "type": "string",
-                        "title": "Description",
-                        "description": "What the user will find on this page"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "url",
-                    "description"
-                ],
-                "title": "DashboardPageUrl"
-            },
-            "DashboardUrls": {
-                "properties": {
-                    "summary": {
-                        "$ref": "#/components/schemas/DashboardPageUrl",
-                        "description": "AI-generated overview with key insights and novel findings"
-                    },
-                    "patterns": {
-                        "$ref": "#/components/schemas/DashboardPageUrl",
-                        "description": "Full list of discovered patterns with statistics, citations, and interactive visualisations"
-                    },
-                    "features": {
-                        "$ref": "#/components/schemas/DashboardPageUrl",
-                        "description": "Feature importance rankings, column statistics, and correlations"
-                    },
-                    "territory": {
-                        "$ref": "#/components/schemas/DashboardPageUrl",
-                        "description": "Interactive 3D map showing how patterns select different regions of the data"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "summary",
-                    "patterns",
-                    "features",
-                    "territory"
-                ],
-                "title": "DashboardUrls"
-            },
-            "EstimateAccount": {
-                "properties": {
-                    "available_credits": {
-                        "type": "integer",
-                        "title": "Available Credits",
-                        "description": "Credits currently available"
-                    },
-                    "sufficient": {
-                        "type": "boolean",
-                        "title": "Sufficient",
-                        "description": "Whether available credits cover the estimated cost"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "available_credits",
-                    "sufficient"
-                ],
-                "title": "EstimateAccount"
-            },
-            "EstimateCost": {
-                "properties": {
-                    "credits": {
-                        "type": "integer",
-                        "title": "Credits",
-                        "description": "Credit cost for this analysis (0 for public runs)"
-                    },
-                    "price_usd": {
-                        "type": "number",
-                        "title": "Price Usd",
-                        "description": "Cost in USD"
-                    },
-                    "free_alternative": {
-                        "type": "boolean",
-                        "title": "Free Alternative",
-                        "description": "Whether a free public alternative exists"
-                    },
-                    "free_alternative_note": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Free Alternative Note",
-                        "description": "Explanation of the free alternative"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "credits",
-                    "price_usd",
-                    "free_alternative",
-                    "free_alternative_note"
-                ],
-                "title": "EstimateCost"
-            },
-            "EstimateLimits": {
-                "properties": {
-                    "max_file_size_mb": {
-                        "type": "integer",
-                        "title": "Max File Size Mb",
-                        "description": "Maximum file size in megabytes"
-                    },
-                    "max_analysis_depth": {
-                        "type": "integer",
-                        "title": "Max Analysis Depth",
-                        "description": "Maximum depth iterations for this dataset"
-                    },
-                    "supported_formats": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array",
-                        "title": "Supported Formats",
-                        "description": "Supported file formats"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "max_file_size_mb",
-                    "max_analysis_depth",
-                    "supported_formats"
-                ],
-                "title": "EstimateLimits"
-            },
-            "EstimateRequest": {
-                "properties": {
-                    "file_size_mb": {
-                        "type": "number",
-                        "exclusiveMinimum": 0,
-                        "title": "File Size Mb",
-                        "description": "File size in megabytes"
-                    },
-                    "num_columns": {
-                        "type": "integer",
-                        "exclusiveMinimum": 0,
-                        "title": "Num Columns",
-                        "description": "Number of columns in the dataset"
-                    },
-                    "analysis_depth": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "title": "Analysis Depth",
-                        "description": "Depth iterations (higher=deeper)",
-                        "default": 2
-                    },
-                    "visibility": {
-                        "type": "string",
-                        "pattern": "^(public|private)$",
-                        "title": "Visibility",
-                        "description": "public (free) or private (costs credits)",
-                        "default": "public"
-                    },
-                    "use_llms": {
-                        "type": "boolean",
-                        "title": "Use Llms",
-                        "description": "Slower and more expensive (5x credit multiplier), but you get smarter pre-processing, literature context and novelty assessment. Public runs always use LLMs regardless of this setting.",
-                        "default": false
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "file_size_mb",
-                    "num_columns"
-                ],
-                "title": "EstimateRequest"
-            },
-            "EstimateResponse": {
-                "properties": {
-                    "cost": {
-                        "$ref": "#/components/schemas/EstimateCost"
-                    },
-                    "limits": {
-                        "$ref": "#/components/schemas/EstimateLimits"
-                    },
-                    "account": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/EstimateAccount"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "description": "Account info (only present when authenticated)"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "cost",
-                    "limits"
-                ],
-                "title": "EstimateResponse"
-            },
-            "ExcludedColumn": {
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Exact column name from the dataset"
-                    },
-                    "reason": {
-                        "type": "string",
-                        "title": "Reason",
-                        "description": "Category: 'identifier', 'leakage', or 'tautological'"
-                    },
-                    "explanation": {
-                        "type": "string",
-                        "title": "Explanation",
-                        "description": "One-sentence explanation of why this column is excluded"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "name",
-                    "reason",
-                    "explanation"
-                ],
-                "title": "ExcludedColumn"
-            },
-            "FeatureImportance": {
-                "properties": {
-                    "kind": {
-                        "type": "string",
-                        "title": "Kind",
-                        "description": "'global' or 'local'"
-                    },
-                    "baseline": {
-                        "type": "number",
-                        "title": "Baseline",
-                        "description": "Baseline score"
-                    },
-                    "scores": {
-                        "items": {
-                            "$ref": "#/components/schemas/FeatureImportanceScore"
-                        },
-                        "type": "array",
-                        "title": "Scores",
-                        "description": "Per-feature importance scores"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "kind",
-                    "baseline",
-                    "scores"
-                ],
-                "title": "FeatureImportance"
-            },
-            "FeatureImportanceScore": {
-                "properties": {
-                    "feature": {
-                        "type": "string",
-                        "title": "Feature",
-                        "description": "Feature/column name"
-                    },
-                    "score": {
-                        "type": "number",
-                        "title": "Score",
-                        "description": "Importance score"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "feature",
-                    "score"
-                ],
-                "title": "FeatureImportanceScore"
-            },
-            "HTTPValidationError": {
-                "properties": {
-                    "detail": {
-                        "items": {
-                            "$ref": "#/components/schemas/ValidationError"
-                        },
-                        "type": "array",
-                        "title": "Detail"
-                    }
-                },
-                "type": "object",
-                "title": "HTTPValidationError"
-            },
-            "PatternCitation": {
-                "properties": {
-                    "url": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Url",
-                        "description": "Citation URL"
-                    },
-                    "title": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Title",
-                        "description": "Paper/article title"
-                    },
-                    "doi": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Doi",
-                        "description": "Digital object identifier"
-                    },
-                    "authors": {
-                        "anyOf": [
-                            {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Authors",
-                        "description": "Author list"
-                    },
-                    "year": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Year",
-                        "description": "Publication year"
-                    },
-                    "journal": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Journal",
-                        "description": "Journal name"
-                    },
-                    "volume": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Volume"
-                    },
-                    "issue": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Issue"
-                    },
-                    "pages": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Pages"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "url",
-                    "title",
-                    "doi",
-                    "authors",
-                    "year",
-                    "journal"
-                ],
-                "title": "PatternCitation"
-            },
-            "PatternCondition": {
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "title": "Type",
-                        "description": "Condition type: 'continuous' or 'categorical'"
-                    },
-                    "feature": {
-                        "type": "string",
-                        "title": "Feature",
-                        "description": "Feature/column name"
-                    },
-                    "min_value": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Min Value",
-                        "description": "Minimum value (continuous only)"
-                    },
-                    "max_value": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Max Value",
-                        "description": "Maximum value (continuous only)"
-                    },
-                    "min_q": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Min Q",
-                        "description": "Minimum quantile (continuous only)"
-                    },
-                    "max_q": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Max Q",
-                        "description": "Maximum quantile (continuous only)"
-                    },
-                    "values": {
-                        "anyOf": [
-                            {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Values",
-                        "description": "Category values (categorical only)"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "type",
-                    "feature"
-                ],
-                "title": "PatternCondition"
-            },
-            "PatternResult": {
-                "properties": {
-                    "pattern_no": {
-                        "type": "integer",
-                        "title": "Pattern No",
-                        "description": "Pattern sequence number"
-                    },
-                    "description": {
-                        "type": "string",
-                        "title": "Description",
-                        "description": "Human-readable pattern description"
-                    },
-                    "target_column": {
-                        "type": "string",
-                        "title": "Target Column",
-                        "description": "Target column name"
-                    },
-                    "target_change_direction": {
-                        "type": "string",
-                        "title": "Target Change Direction",
-                        "description": "'max' or 'min' \u2014 which extreme this pattern drives"
-                    },
-                    "p_value": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "P Value",
-                        "description": "FDR-corrected p-value"
-                    },
-                    "p_value_raw": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "P Value Raw",
-                        "description": "Raw (uncorrected) p-value"
-                    },
-                    "abs_target_change": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Abs Target Change",
-                        "description": "Absolute effect on target"
-                    },
-                    "support_count": {
-                        "type": "number",
-                        "title": "Support Count",
-                        "description": "Number of rows matching this pattern"
-                    },
-                    "support_percentage": {
-                        "type": "number",
-                        "title": "Support Percentage",
-                        "description": "Fraction of dataset matching this pattern"
-                    },
-                    "novelty_type": {
-                        "type": "string",
-                        "title": "Novelty Type",
-                        "description": "'novel' or 'confirmatory'"
-                    },
-                    "novelty_explanation": {
-                        "type": "string",
-                        "title": "Novelty Explanation",
-                        "description": "Why this pattern is novel or known"
-                    },
-                    "conditions": {
-                        "items": {
-                            "$ref": "#/components/schemas/PatternCondition"
-                        },
-                        "type": "array",
-                        "title": "Conditions",
-                        "description": "Conditions defining this pattern"
-                    },
-                    "citations": {
-                        "items": {
-                            "$ref": "#/components/schemas/PatternCitation"
-                        },
-                        "type": "array",
-                        "title": "Citations",
-                        "description": "Academic citations"
-                    },
-                    "target_percentage": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Target Percentage"
-                    },
-                    "target_class": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Target Class"
-                    },
-                    "target_mean": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Target Mean"
-                    },
-                    "target_std": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Target Std"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "pattern_no",
-                    "description",
-                    "target_column",
-                    "target_change_direction",
-                    "p_value",
-                    "p_value_raw",
-                    "abs_target_change",
-                    "support_count",
-                    "support_percentage",
-                    "novelty_type",
-                    "novelty_explanation",
-                    "conditions"
-                ],
-                "title": "PatternResult"
-            },
-            "PlanInfo": {
-                "properties": {
-                    "tier": {
-                        "type": "string",
-                        "title": "Tier",
-                        "description": "Plan tier ID (free_tier, tier_1, tier_2, enterprise)"
-                    },
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Human-readable plan name"
-                    },
-                    "price_usd": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Price Usd",
-                        "description": "Monthly price in USD (null for enterprise)"
-                    },
-                    "monthly_credits": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Monthly Credits",
-                        "description": "Credits included per month (null for enterprise)"
-                    },
-                    "features": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array",
-                        "title": "Features",
-                        "description": "Feature list for this plan"
-                    },
-                    "can_make_private": {
-                        "type": "boolean",
-                        "title": "Can Make Private",
-                        "description": "Whether private analyses are available"
-                    },
-                    "max_seats": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Max Seats",
-                        "description": "Maximum team seats (null for unlimited)"
-                    },
-                    "is_org_level": {
-                        "type": "boolean",
-                        "title": "Is Org Level",
-                        "description": "Whether subscription is at the organization level"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "tier",
-                    "name",
-                    "price_usd",
-                    "monthly_credits",
-                    "features",
-                    "can_make_private",
-                    "max_seats",
-                    "is_org_level"
-                ],
-                "title": "PlanInfo"
-            },
-            "PlansResponse": {
-                "properties": {
-                    "plans": {
-                        "items": {
-                            "$ref": "#/components/schemas/PlanInfo"
-                        },
-                        "type": "array",
-                        "title": "Plans",
-                        "description": "All available subscription plans"
-                    },
-                    "credit_price_usd": {
-                        "type": "number",
-                        "title": "Credit Price Usd",
-                        "description": "Price per individual credit in USD"
-                    },
-                    "credit_pack_size": {
-                        "type": "integer",
-                        "title": "Credit Pack Size",
-                        "description": "Number of credits per pack"
-                    },
-                    "credit_pack_price_usd": {
-                        "type": "number",
-                        "title": "Credit Pack Price Usd",
-                        "description": "Price per credit pack in USD"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "plans",
-                    "credit_price_usd",
-                    "credit_pack_size",
-                    "credit_pack_price_usd"
-                ],
-                "title": "PlansResponse"
-            },
-            "PurchaseCreditsRequest": {
-                "properties": {
-                    "packs": {
-                        "type": "integer",
-                        "maximum": 50,
-                        "minimum": 1,
-                        "title": "Packs",
-                        "description": "Number of 100-credit packs to purchase",
-                        "default": 1
-                    }
-                },
-                "type": "object",
-                "title": "PurchaseCreditsRequest"
-            },
-            "PurchaseCreditsResponse": {
-                "properties": {
-                    "purchased_credits": {
-                        "type": "integer",
-                        "title": "Purchased Credits",
-                        "description": "Credits purchased in this transaction"
-                    },
-                    "total_credits": {
-                        "type": "integer",
-                        "title": "Total Credits",
-                        "description": "Total credits available after purchase"
-                    },
-                    "charge_amount_usd": {
-                        "type": "number",
-                        "title": "Charge Amount Usd",
-                        "description": "Amount charged in USD"
-                    },
-                    "stripe_payment_id": {
-                        "type": "string",
-                        "title": "Stripe Payment Id",
-                        "description": "Stripe payment intent ID"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "purchased_credits",
-                    "total_credits",
-                    "charge_amount_usd",
-                    "stripe_payment_id"
-                ],
-                "title": "PurchaseCreditsResponse"
-            },
-            "RecommendExclusionsRequest": {
-                "properties": {
-                    "columns": {
-                        "items": {
-                            "$ref": "#/components/schemas/ColumnInfo-Input"
-                        },
-                        "type": "array",
-                        "title": "Columns",
-                        "description": "Column metadata from the dataset"
-                    },
-                    "target_column": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Target Column",
-                        "description": "Target column, if already selected"
-                    },
-                    "dataset_title": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Dataset Title",
-                        "description": "Dataset title for context"
-                    },
-                    "dataset_description": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Dataset Description",
-                        "description": "Dataset description for context"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "columns"
-                ],
-                "title": "RecommendExclusionsRequest"
-            },
-            "ResultsResponse": {
-                "properties": {
-                    "status": {
-                        "type": "string",
-                        "title": "Status",
-                        "description": "Run status: 'processing', 'completed', or 'failed'"
-                    },
-                    "report_id": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Report Id",
-                        "description": "Report UUID (null if not yet completed)"
-                    },
-                    "report_url": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Report Url",
-                        "description": "Shareable URL to the interactive web report"
-                    },
-                    "dashboard_urls": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/DashboardUrls"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "description": "Direct links to each dashboard page with descriptions of what's on each page"
-                    },
-                    "job_id": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Job Id",
-                        "description": "Job UUID"
-                    },
-                    "job_status": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Job Status",
-                        "description": "Job status"
-                    },
-                    "error_message": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Error Message",
-                        "description": "Error message if status is 'failed'"
-                    },
-                    "task": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Task",
-                        "description": "Task type: regression, binary_classification, multiclass_classification"
-                    },
-                    "dataset_title": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Dataset Title",
-                        "description": "Dataset title"
-                    },
-                    "target_column": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Target Column",
-                        "description": "Target column name"
-                    },
-                    "total_rows": {
-                        "anyOf": [
-                            {
-                                "type": "integer"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Total Rows",
-                        "description": "Number of rows in the dataset"
-                    },
-                    "summary": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/ResultsSummary"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "description": "LLM-generated analysis summary"
-                    },
-                    "patterns": {
-                        "items": {
-                            "$ref": "#/components/schemas/PatternResult"
-                        },
-                        "type": "array",
-                        "title": "Patterns",
-                        "description": "Discovered patterns"
-                    },
-                    "columns": {
-                        "items": {
-                            "$ref": "#/components/schemas/ColumnInfo-Output"
-                        },
-                        "type": "array",
-                        "title": "Columns",
-                        "description": "Column statistics"
-                    },
-                    "correlation_matrix": {
-                        "items": {
-                            "$ref": "#/components/schemas/CorrelationEntry"
-                        },
-                        "type": "array",
-                        "title": "Correlation Matrix",
-                        "description": "Feature correlations"
-                    },
-                    "feature_importance": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/FeatureImportance"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "description": "Global feature importance"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "status"
-                ],
-                "title": "ResultsResponse"
-            },
-            "ResultsSummary": {
-                "properties": {
-                    "overview": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Overview",
-                        "description": "High-level summary of findings"
-                    },
-                    "key_insights": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array",
-                        "title": "Key Insights",
-                        "description": "Key insights from the analysis"
-                    },
-                    "novel_patterns": {
-                        "anyOf": [
-                            {},
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Novel Patterns",
-                        "description": "Novel pattern summary"
-                    },
-                    "selected_pattern_id": {
-                        "anyOf": [
-                            {},
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Selected Pattern Id"
-                    }
-                },
-                "type": "object",
-                "title": "ResultsSummary"
-            },
-            "SignupRequest": {
-                "properties": {
-                    "email": {
-                        "type": "string",
-                        "title": "Email",
-                        "description": "Email address for the new account"
-                    },
-                    "name": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Name",
-                        "description": "Display name (optional \u2014 defaults to email local part)"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "email"
-                ],
-                "title": "SignupRequest"
-            },
-            "SignupResponse": {
-                "properties": {
-                    "key": {
-                        "type": "string",
-                        "title": "Key",
-                        "description": "API key (shown only once \u2014 store it securely)"
-                    },
-                    "key_id": {
-                        "type": "string",
-                        "title": "Key Id",
-                        "description": "API key UUID"
-                    },
-                    "organization_id": {
-                        "type": "string",
-                        "title": "Organization Id",
-                        "description": "Organization UUID"
-                    },
-                    "tier": {
-                        "type": "string",
-                        "title": "Tier",
-                        "description": "Subscription tier (free_tier)"
-                    },
-                    "credits": {
-                        "type": "integer",
-                        "title": "Credits",
-                        "description": "Available credits"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "key",
-                    "key_id",
-                    "organization_id",
-                    "tier",
-                    "credits"
-                ],
-                "title": "SignupResponse"
-            },
-            "SubscribeRequest": {
-                "properties": {
-                    "plan": {
-                        "type": "string",
-                        "pattern": "^(free_tier|tier_1|tier_2)$",
-                        "title": "Plan",
-                        "description": "Plan tier ID"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "plan"
-                ],
-                "title": "SubscribeRequest"
-            },
-            "SubscribeResponse": {
-                "properties": {
-                    "plan": {
-                        "type": "string",
-                        "title": "Plan",
-                        "description": "New plan tier ID"
-                    },
-                    "name": {
-                        "type": "string",
-                        "title": "Name",
-                        "description": "Human-readable plan name"
-                    },
-                    "monthly_credits": {
-                        "type": "integer",
-                        "title": "Monthly Credits",
-                        "description": "Credits included per month on new plan"
-                    },
-                    "price_usd": {
-                        "anyOf": [
-                            {
-                                "type": "number"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ],
-                        "title": "Price Usd",
-                        "description": "Monthly price in USD"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "plan",
-                    "name",
-                    "monthly_credits",
-                    "price_usd"
-                ],
-                "title": "SubscribeResponse"
-            },
-            "ValidationError": {
-                "properties": {
-                    "loc": {
-                        "items": {
-                            "anyOf": [
-                                {
-                                    "type": "string"
-                                },
-                                {
-                                    "type": "integer"
-                                }
-                            ]
-                        },
-                        "type": "array",
-                        "title": "Location"
-                    },
-                    "msg": {
-                        "type": "string",
-                        "title": "Message"
-                    },
-                    "type": {
-                        "type": "string",
-                        "title": "Error Type"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "loc",
-                    "msg",
-                    "type"
-                ],
-                "title": "ValidationError"
-            },
-            "VerifyRequest": {
-                "properties": {
-                    "email": {
-                        "type": "string",
-                        "title": "Email",
-                        "description": "Email address used during signup"
-                    },
-                    "code": {
-                        "type": "string",
-                        "title": "Code",
-                        "description": "6-digit verification code from email"
-                    }
-                },
-                "type": "object",
-                "required": [
-                    "email",
-                    "code"
-                ],
-                "title": "VerifyRequest"
-            }
-        }
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Disco API",
+    "description": "Disco finds novel, statistically validated patterns in tabular data that correlation analysis, LLMs, and hypothesis-driven approaches miss. Each pattern is tested on hold-out data with FDR-corrected p-values and checked against academic literature with citations.\n\n**For agents:** Use `POST /api/estimate` to check cost before running, `POST /api/api-keys` to create an API key, and `GET /api/runs/{run_id}/results` to fetch analysis results.\n\n**Authentication:** Clerk session tokens or `disco_` API keys via `Authorization: Bearer <token>` header.\n\n**SDK:** `pip install discovery-engine-api` \u2014 [Full docs](https://disco.leap-labs.com/llms-full.txt)",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://disco.leap-labs.com"
     }
+  ],
+  "paths": {
+    "/api/runs/{run_id}/results": {
+      "get": {
+        "tags": [
+          "results"
+        ],
+        "summary": "Get complete analysis results",
+        "description": "Returns complete analysis results: patterns with conditions, p-values, novelty scores, citations; LLM summary; column stats; correlation matrix; feature importance. If still processing, `status` is `processing` and result fields are empty \u2014 poll until `completed`.",
+        "operationId": "get_results_api_runs__run_id__results_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The ID of the run",
+              "title": "Run Id"
+            },
+            "description": "The ID of the run"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/api-keys": {
+      "get": {
+        "tags": [
+          "api-keys"
+        ],
+        "summary": "List API keys",
+        "description": "List all API keys for the current user. Key values are not returned \u2014 only metadata.",
+        "operationId": "list_api_keys_api_api_keys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyInfo"
+                  },
+                  "type": "array",
+                  "title": "Response List Api Keys Api Api Keys Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "api-keys"
+        ],
+        "summary": "Create API key",
+        "description": "Create a new API key for an authenticated user. For first-time users, also provisions a personal org, Stripe customer, and free-tier subscription (idempotent). The `key` field is returned only once \u2014 store it securely. To sign up without an existing account, use POST /api/signup (email + OTP).",
+        "operationId": "create_api_key_api_api_keys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/api-keys/{key_id}": {
+      "delete": {
+        "tags": [
+          "api-keys"
+        ],
+        "summary": "Delete API key",
+        "description": "Permanently revoke an API key. This action cannot be undone.",
+        "operationId": "delete_api_key_api_api_keys__key_id__delete",
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The ID of the API key to delete",
+              "title": "Key Id"
+            },
+            "description": "The ID of the API key to delete"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/columns/recommend-exclusions": {
+      "post": {
+        "tags": [
+          "columns"
+        ],
+        "summary": "Recommend columns to exclude from analysis",
+        "description": "Uses domain-aware LLM analysis to identify columns that should be excluded due to being identifiers, data leakage, or tautological/definitional relationships.",
+        "operationId": "recommend_exclusions_api_columns_recommend_exclusions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendExclusionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnExclusionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Get current user",
+        "description": "Returns the current authenticated user's profile and session information.",
+        "operationId": "me_api_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/organizations": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "List my organizations",
+        "description": "Returns all organizations the current user belongs to. Use the returned `id` values as the `X-Organization-ID` header for endpoints that require it.",
+        "operationId": "get_my_organizations_api_me_organizations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/runs": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "List my runs",
+        "description": "Returns all analysis runs for the current user with their current status, job info, and report links. Use this to monitor running analyses or find past results.",
+        "operationId": "get_my_runs_api_me_runs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plans": {
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "List available plans and pricing",
+        "description": "Public endpoint \u2014 no authentication required. Returns all available subscription plans with pricing, credit allowances, and feature lists. Credits cost $0.10 each. Credit packs of 100 ($10) are available on all plans. Use this to show users their options before they sign up or upgrade.",
+        "operationId": "list_plans_api_plans_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlansResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/estimate": {
+      "post": {
+        "tags": [
+          "estimate"
+        ],
+        "summary": "Estimate credit cost for an analysis",
+        "description": "Estimate credit cost and feasibility of a Disco analysis before committing. Always call before running a private analysis. Returns credits, format limits, and (if authenticated) whether you have sufficient credits. Auth is optional.",
+        "operationId": "estimate_api_estimate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstimateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Get account status",
+        "description": "Returns current plan, available credits (subscription + purchased), payment method status, and Stripe identifiers. Use this to check credit balance before running a private analysis.",
+        "operationId": "get_account_api_account_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/payment-method": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Attach a payment method",
+        "description": "Attach a Stripe payment method to your account. The payment method must be tokenized via Stripe's API first (using the `stripe_publishable_key` from `POST /api/api-keys` or `GET /api/account`) \u2014 card details never touch Disco. Required before purchasing credits or subscribing to a paid plan.",
+        "operationId": "attach_payment_method_api_account_payment_method_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachPaymentMethodRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachPaymentMethodResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/credits/purchase": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Purchase credit packs",
+        "description": "Purchase Disco credits using a stored payment method. Credits cost $0.10 each, sold in packs of 100 ($10/pack). Requires a payment method on file (attach one via `POST /api/account/payment-method`). Returns 402 if no payment method is attached.",
+        "operationId": "purchase_credits_api_account_credits_purchase_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseCreditsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseCreditsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/subscribe": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Subscribe to or change plan",
+        "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 50 credits/mo), Team ($199, 200 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /api/plans` to see all plan details.",
+        "operationId": "subscribe_api_account_subscribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscribeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/signup": {
+      "post": {
+        "tags": [
+          "signup"
+        ],
+        "summary": "Initiate account creation",
+        "description": "Step 1 of agent signup. Validates the email and sends a 6-digit verification code. Follow up with POST /api/signup/verify to complete signup and receive an API key. Returns 409 if the email is already registered.",
+        "operationId": "signup_api_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/signup/verify": {
+      "post": {
+        "tags": [
+          "signup"
+        ],
+        "summary": "Verify email and complete account creation",
+        "description": "Complete signup by submitting the verification code sent to the email address. Creates the account and returns a ready-to-use API key.\n\nCodes expire after 15 minutes and can only be used once.",
+        "operationId": "verify_signup_api_signup_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccountCredits": {
+        "properties": {
+          "subscription": {
+            "type": "integer",
+            "title": "Subscription",
+            "description": "Credits from subscription allowance"
+          },
+          "purchased": {
+            "type": "integer",
+            "title": "Purchased",
+            "description": "Credits from pack purchases"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total available credits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscription",
+          "purchased",
+          "total"
+        ],
+        "title": "AccountCredits"
+      },
+      "AccountOrganization": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Organization UUID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Organization name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AccountOrganization"
+      },
+      "AccountPaymentMethod": {
+        "properties": {
+          "on_file": {
+            "type": "boolean",
+            "title": "On File",
+            "description": "Whether a payment method is attached"
+          },
+          "card_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Last4",
+            "description": "Last 4 digits of card"
+          },
+          "card_brand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Brand",
+            "description": "Card brand (visa, mastercard, etc.)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "on_file",
+          "card_last4",
+          "card_brand"
+        ],
+        "title": "AccountPaymentMethod"
+      },
+      "AccountPlan": {
+        "properties": {
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "Current plan tier ID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Human-readable plan name"
+          },
+          "monthly_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Credits",
+            "description": "Credits included per month"
+          },
+          "price_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Usd",
+            "description": "Monthly price in USD"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tier",
+          "name",
+          "monthly_credits",
+          "price_usd"
+        ],
+        "title": "AccountPlan"
+      },
+      "AccountResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "User UUID"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email",
+            "description": "User email address"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/AccountOrganization"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/AccountPlan"
+          },
+          "credits": {
+            "$ref": "#/components/schemas/AccountCredits"
+          },
+          "payment_method": {
+            "$ref": "#/components/schemas/AccountPaymentMethod"
+          },
+          "stripe_publishable_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Publishable Key",
+            "description": "Stripe publishable key for client-side payment method tokenization"
+          },
+          "stripe_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Customer Id",
+            "description": "Stripe customer ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "organization",
+          "plan",
+          "credits",
+          "payment_method",
+          "stripe_publishable_key",
+          "stripe_customer_id"
+        ],
+        "title": "AccountResponse"
+      },
+      "ApiKeyInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "API key UUID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Key name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "When the key was created"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "When the key expires (null = never)"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At",
+            "description": "Last time this key was used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "expires_at",
+          "last_used_at"
+        ],
+        "title": "ApiKeyInfo"
+      },
+      "AttachPaymentMethodRequest": {
+        "properties": {
+          "payment_method_id": {
+            "type": "string",
+            "title": "Payment Method Id",
+            "description": "Stripe payment method token (pm_...)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_method_id"
+        ],
+        "title": "AttachPaymentMethodRequest"
+      },
+      "AttachPaymentMethodResponse": {
+        "properties": {
+          "payment_method_attached": {
+            "type": "boolean",
+            "title": "Payment Method Attached",
+            "description": "Whether attachment succeeded"
+          },
+          "card_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Last4",
+            "description": "Last 4 digits of the attached card"
+          },
+          "card_brand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Brand",
+            "description": "Card brand (visa, mastercard, etc.)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_method_attached",
+          "card_last4",
+          "card_brand"
+        ],
+        "title": "AttachPaymentMethodResponse"
+      },
+      "ColumnExclusionResult": {
+        "properties": {
+          "excluded_columns": {
+            "items": {
+              "$ref": "#/components/schemas/ExcludedColumn"
+            },
+            "type": "array",
+            "title": "Excluded Columns"
+          },
+          "reasoning": {
+            "type": "string",
+            "title": "Reasoning",
+            "description": "Brief summary of domain analysis and exclusion decisions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reasoning"
+        ],
+        "title": "ColumnExclusionResult"
+      },
+      "ColumnInfo-Input": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Column name"
+          },
+          "dtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dtype",
+            "description": "Data type (e.g., 'integer', 'string', 'float')"
+          },
+          "unique_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unique Count",
+            "description": "Number of distinct values"
+          },
+          "null_percentage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Null Percentage",
+            "description": "Percentage of null values"
+          },
+          "sample_values": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Values",
+            "description": "Sample values from the column"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ColumnInfo"
+      },
+      "ColumnInfo-Output": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Column name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Display-friendly column name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "'continuous' or 'categorical'"
+          },
+          "data_type": {
+            "type": "string",
+            "title": "Data Type",
+            "description": "Data type (float, int, string, etc.)"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "std": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Std"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "approx_unique": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approx Unique"
+          },
+          "null_percentage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Null Percentage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "display_name",
+          "type",
+          "data_type"
+        ],
+        "title": "ColumnInfo"
+      },
+      "CorrelationEntry": {
+        "properties": {
+          "feature_x": {
+            "type": "string",
+            "title": "Feature X"
+          },
+          "feature_y": {
+            "type": "string",
+            "title": "Feature Y"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature_x",
+          "feature_y",
+          "value"
+        ],
+        "title": "CorrelationEntry"
+      },
+      "CreateApiKeyRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "default": "default"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days"
+          }
+        },
+        "type": "object",
+        "title": "CreateApiKeyRequest"
+      },
+      "CreateApiKeyResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "API key UUID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Key name"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "The API key value (shown only once \u2014 store it securely)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "When the key was created"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "When the key expires (null = never)"
+          },
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id",
+            "description": "Organization UUID the key belongs to"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "Current subscription tier"
+          },
+          "credits": {
+            "type": "integer",
+            "title": "Credits",
+            "description": "Available credits"
+          },
+          "stripe_publishable_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Publishable Key",
+            "description": "Stripe publishable key for client-side payment method tokenization"
+          },
+          "stripe_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Customer Id",
+            "description": "Stripe customer ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "key",
+          "created_at",
+          "expires_at",
+          "organization_id",
+          "tier",
+          "credits",
+          "stripe_publishable_key",
+          "stripe_customer_id"
+        ],
+        "title": "CreateApiKeyResponse"
+      },
+      "DashboardPageUrl": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Direct URL to this dashboard page"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "What the user will find on this page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "description"
+        ],
+        "title": "DashboardPageUrl"
+      },
+      "DashboardUrls": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/DashboardPageUrl",
+            "description": "AI-generated overview with key insights and novel findings"
+          },
+          "patterns": {
+            "$ref": "#/components/schemas/DashboardPageUrl",
+            "description": "Full list of discovered patterns with statistics, citations, and interactive visualisations"
+          },
+          "features": {
+            "$ref": "#/components/schemas/DashboardPageUrl",
+            "description": "Feature importance rankings, column statistics, and correlations"
+          },
+          "territory": {
+            "$ref": "#/components/schemas/DashboardPageUrl",
+            "description": "Interactive 3D map showing how patterns select different regions of the data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "patterns",
+          "features",
+          "territory"
+        ],
+        "title": "DashboardUrls"
+      },
+      "EstimateAccount": {
+        "properties": {
+          "available_credits": {
+            "type": "integer",
+            "title": "Available Credits",
+            "description": "Credits currently available"
+          },
+          "sufficient": {
+            "type": "boolean",
+            "title": "Sufficient",
+            "description": "Whether available credits cover the estimated cost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available_credits",
+          "sufficient"
+        ],
+        "title": "EstimateAccount"
+      },
+      "EstimateCost": {
+        "properties": {
+          "credits": {
+            "type": "integer",
+            "title": "Credits",
+            "description": "Credit cost for this analysis (0 for public runs)"
+          },
+          "price_usd": {
+            "type": "number",
+            "title": "Price Usd",
+            "description": "Cost in USD"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credits",
+          "price_usd"
+        ],
+        "title": "EstimateCost"
+      },
+      "EstimateLimits": {
+        "properties": {
+          "max_file_size_mb": {
+            "type": "integer",
+            "title": "Max File Size Mb",
+            "description": "Maximum file size in megabytes"
+          },
+          "max_analysis_depth": {
+            "type": "integer",
+            "title": "Max Analysis Depth",
+            "description": "Maximum depth iterations for this dataset"
+          },
+          "supported_formats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Formats",
+            "description": "Supported file formats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_file_size_mb",
+          "max_analysis_depth",
+          "supported_formats"
+        ],
+        "title": "EstimateLimits"
+      },
+      "EstimateRequest": {
+        "properties": {
+          "file_size_mb": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "title": "File Size Mb",
+            "description": "File size in megabytes"
+          },
+          "num_columns": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "title": "Num Columns",
+            "description": "Number of columns in the dataset"
+          },
+          "analysis_depth": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Analysis Depth",
+            "description": "Depth iterations (higher=deeper)",
+            "default": 2
+          },
+          "visibility": {
+            "type": "string",
+            "pattern": "^(public|private)$",
+            "title": "Visibility",
+            "description": "public (free) or private (costs credits)",
+            "default": "public"
+          },
+          "use_llms": {
+            "type": "boolean",
+            "title": "Use Llms",
+            "description": "Slower and more expensive, but you get smarter pre-processing, literature context and novelty assessment. Default False \u2014 set to True if you want Disco-generated explanations. Public runs always use LLMs.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_size_mb",
+          "num_columns"
+        ],
+        "title": "EstimateRequest"
+      },
+      "EstimateResponse": {
+        "properties": {
+          "cost": {
+            "$ref": "#/components/schemas/EstimateCost"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/EstimateLimits"
+          },
+          "account": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstimateAccount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Account info (only present when authenticated)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost",
+          "limits"
+        ],
+        "title": "EstimateResponse"
+      },
+      "ExcludedColumn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Exact column name from the dataset"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Category: 'identifier', 'leakage', or 'tautological'"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "description": "One-sentence explanation of why this column is excluded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "reason",
+          "explanation"
+        ],
+        "title": "ExcludedColumn"
+      },
+      "FeatureImportance": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "'global' or 'local'"
+          },
+          "baseline": {
+            "type": "number",
+            "title": "Baseline",
+            "description": "Baseline score"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureImportanceScore"
+            },
+            "type": "array",
+            "title": "Scores",
+            "description": "Per-feature importance scores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "baseline",
+          "scores"
+        ],
+        "title": "FeatureImportance"
+      },
+      "FeatureImportanceScore": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature",
+            "description": "Feature/column name"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Importance score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature",
+          "score"
+        ],
+        "title": "FeatureImportanceScore"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "PatternCitation": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Citation URL"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Paper/article title"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "Digital object identifier"
+          },
+          "authors": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authors",
+            "description": "Author list"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year",
+            "description": "Publication year"
+          },
+          "journal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal",
+            "description": "Journal name"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume"
+          },
+          "issue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "title",
+          "doi",
+          "authors",
+          "year",
+          "journal"
+        ],
+        "title": "PatternCitation"
+      },
+      "PatternCondition": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Condition type: 'continuous' or 'categorical'"
+          },
+          "feature": {
+            "type": "string",
+            "title": "Feature",
+            "description": "Feature/column name"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value",
+            "description": "Minimum value (continuous only)"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value",
+            "description": "Maximum value (continuous only)"
+          },
+          "min_q": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Q",
+            "description": "Minimum quantile (continuous only)"
+          },
+          "max_q": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Q",
+            "description": "Maximum quantile (continuous only)"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Values",
+            "description": "Category values (categorical only)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "feature"
+        ],
+        "title": "PatternCondition"
+      },
+      "PatternResult": {
+        "properties": {
+          "pattern_no": {
+            "type": "integer",
+            "title": "Pattern No",
+            "description": "Pattern sequence number"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Human-readable pattern description"
+          },
+          "target_column": {
+            "type": "string",
+            "title": "Target Column",
+            "description": "Target column name"
+          },
+          "target_change_direction": {
+            "type": "string",
+            "title": "Target Change Direction",
+            "description": "'max' or 'min' \u2014 which extreme this pattern drives"
+          },
+          "p_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P Value",
+            "description": "FDR-corrected p-value"
+          },
+          "p_value_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P Value Raw",
+            "description": "Raw (uncorrected) p-value"
+          },
+          "abs_target_change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abs Target Change",
+            "description": "Absolute effect on target"
+          },
+          "support_count": {
+            "type": "number",
+            "title": "Support Count",
+            "description": "Number of rows matching this pattern"
+          },
+          "support_percentage": {
+            "type": "number",
+            "title": "Support Percentage",
+            "description": "Fraction of dataset matching this pattern"
+          },
+          "novelty_type": {
+            "type": "string",
+            "title": "Novelty Type",
+            "description": "'novel' or 'confirmatory'"
+          },
+          "novelty_explanation": {
+            "type": "string",
+            "title": "Novelty Explanation",
+            "description": "Why this pattern is novel or known"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/PatternCondition"
+            },
+            "type": "array",
+            "title": "Conditions",
+            "description": "Conditions defining this pattern"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/PatternCitation"
+            },
+            "type": "array",
+            "title": "Citations",
+            "description": "Academic citations"
+          },
+          "target_percentage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Percentage"
+          },
+          "target_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Class"
+          },
+          "target_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Mean"
+          },
+          "target_std": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Std"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pattern_no",
+          "description",
+          "target_column",
+          "target_change_direction",
+          "p_value",
+          "p_value_raw",
+          "abs_target_change",
+          "support_count",
+          "support_percentage",
+          "novelty_type",
+          "novelty_explanation",
+          "conditions"
+        ],
+        "title": "PatternResult"
+      },
+      "PlanInfo": {
+        "properties": {
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "Plan tier ID (free_tier, tier_1, tier_2, enterprise)"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Human-readable plan name"
+          },
+          "price_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Usd",
+            "description": "Monthly price in USD (null for enterprise)"
+          },
+          "monthly_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Credits",
+            "description": "Credits included per month (null for enterprise)"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features",
+            "description": "Feature list for this plan"
+          },
+          "can_make_private": {
+            "type": "boolean",
+            "title": "Can Make Private",
+            "description": "Whether private analyses are available"
+          },
+          "max_seats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Seats",
+            "description": "Maximum team seats (null for unlimited)"
+          },
+          "is_org_level": {
+            "type": "boolean",
+            "title": "Is Org Level",
+            "description": "Whether subscription is at the organization level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tier",
+          "name",
+          "price_usd",
+          "monthly_credits",
+          "features",
+          "can_make_private",
+          "max_seats",
+          "is_org_level"
+        ],
+        "title": "PlanInfo"
+      },
+      "PlansResponse": {
+        "properties": {
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanInfo"
+            },
+            "type": "array",
+            "title": "Plans",
+            "description": "All available subscription plans"
+          },
+          "credit_price_usd": {
+            "type": "number",
+            "title": "Credit Price Usd",
+            "description": "Price per individual credit in USD"
+          },
+          "credit_pack_size": {
+            "type": "integer",
+            "title": "Credit Pack Size",
+            "description": "Number of credits per pack"
+          },
+          "credit_pack_price_usd": {
+            "type": "number",
+            "title": "Credit Pack Price Usd",
+            "description": "Price per credit pack in USD"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plans",
+          "credit_price_usd",
+          "credit_pack_size",
+          "credit_pack_price_usd"
+        ],
+        "title": "PlansResponse"
+      },
+      "PurchaseCreditsRequest": {
+        "properties": {
+          "packs": {
+            "type": "integer",
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Packs",
+            "description": "Number of 100-credit packs to purchase",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "PurchaseCreditsRequest"
+      },
+      "PurchaseCreditsResponse": {
+        "properties": {
+          "purchased_credits": {
+            "type": "integer",
+            "title": "Purchased Credits",
+            "description": "Credits purchased in this transaction"
+          },
+          "total_credits": {
+            "type": "integer",
+            "title": "Total Credits",
+            "description": "Total credits available after purchase"
+          },
+          "charge_amount_usd": {
+            "type": "number",
+            "title": "Charge Amount Usd",
+            "description": "Amount charged in USD"
+          },
+          "stripe_payment_id": {
+            "type": "string",
+            "title": "Stripe Payment Id",
+            "description": "Stripe payment intent ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "purchased_credits",
+          "total_credits",
+          "charge_amount_usd",
+          "stripe_payment_id"
+        ],
+        "title": "PurchaseCreditsResponse"
+      },
+      "RecommendExclusionsRequest": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnInfo-Input"
+            },
+            "type": "array",
+            "title": "Columns",
+            "description": "Column metadata from the dataset"
+          },
+          "target_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Column",
+            "description": "Target column, if already selected"
+          },
+          "dataset_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Title",
+            "description": "Dataset title for context"
+          },
+          "dataset_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Description",
+            "description": "Dataset description for context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "title": "RecommendExclusionsRequest"
+      },
+      "ResultsResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Run status: 'processing', 'completed', or 'failed'"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Id",
+            "description": "Report UUID (null if not yet completed)"
+          },
+          "report_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Url",
+            "description": "Shareable URL to the interactive web report"
+          },
+          "dashboard_urls": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardUrls"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Direct links to each dashboard page with descriptions of what's on each page"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id",
+            "description": "Job UUID"
+          },
+          "job_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Status",
+            "description": "Job status"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Error message if status is 'failed'"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task",
+            "description": "Task type: regression, binary_classification, multiclass_classification"
+          },
+          "dataset_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Title",
+            "description": "Dataset title"
+          },
+          "target_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Column",
+            "description": "Target column name"
+          },
+          "total_rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Rows",
+            "description": "Number of rows in the dataset"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultsSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "LLM-generated analysis summary"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/PatternResult"
+            },
+            "type": "array",
+            "title": "Patterns",
+            "description": "Discovered patterns"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnInfo-Output"
+            },
+            "type": "array",
+            "title": "Columns",
+            "description": "Column statistics"
+          },
+          "correlation_matrix": {
+            "items": {
+              "$ref": "#/components/schemas/CorrelationEntry"
+            },
+            "type": "array",
+            "title": "Correlation Matrix",
+            "description": "Feature correlations"
+          },
+          "feature_importance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureImportance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Global feature importance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ResultsResponse"
+      },
+      "ResultsSummary": {
+        "properties": {
+          "overview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overview",
+            "description": "High-level summary of findings"
+          },
+          "key_insights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Insights",
+            "description": "Key insights from the analysis"
+          },
+          "novel_patterns": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Novel Patterns",
+            "description": "Novel pattern summary"
+          },
+          "selected_pattern_id": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Pattern Id"
+          }
+        },
+        "type": "object",
+        "title": "ResultsSummary"
+      },
+      "SignupRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Email address for the new account"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Display name (optional \u2014 defaults to email local part)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "SignupRequest"
+      },
+      "SignupResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "API key (shown only once \u2014 store it securely)"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id",
+            "description": "API key UUID"
+          },
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id",
+            "description": "Organization UUID"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "Subscription tier (always free_tier for new signups)"
+          },
+          "credits": {
+            "type": "integer",
+            "title": "Credits",
+            "description": "Available credits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "key_id",
+          "organization_id",
+          "tier",
+          "credits"
+        ],
+        "title": "SignupResponse"
+      },
+      "SubscribeRequest": {
+        "properties": {
+          "plan": {
+            "type": "string",
+            "pattern": "^(free_tier|tier_1|tier_2)$",
+            "title": "Plan",
+            "description": "Plan tier ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "title": "SubscribeRequest"
+      },
+      "SubscribeResponse": {
+        "properties": {
+          "plan": {
+            "type": "string",
+            "title": "Plan",
+            "description": "New plan tier ID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Human-readable plan name"
+          },
+          "monthly_credits": {
+            "type": "integer",
+            "title": "Monthly Credits",
+            "description": "Credits included per month on new plan"
+          },
+          "price_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Usd",
+            "description": "Monthly price in USD"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan",
+          "name",
+          "monthly_credits",
+          "price_usd"
+        ],
+        "title": "SubscribeResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerifyRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Email address used during signup"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "6-digit verification code from email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "VerifyRequest"
+      }
+    }
+  }
 }

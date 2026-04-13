@@ -13,7 +13,7 @@ Made by [Leap Laboratories](https://www.leap-labs.com).
 
 Most data analysis starts with a question. Disco starts with the data.
 
-Without biases or assumptions, it searches for combinations of feature conditions that significantly shift your target column — things like "patients aged 45–65 with low HDL *and* high CRP have 3× the readmission rate" — without you needing to hypothesise that interaction first.
+Without biases or assumptions, it finds combinations of feature conditions that significantly shift your target column — things like "patients aged 45–65 with low HDL *and* high CRP have 3× the readmission rate" — without you needing to hypothesise that interaction first.
 
 Each pattern is:
 - **Validated on a hold-out set** — increases the chance of generalisation
