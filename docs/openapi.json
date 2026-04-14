@@ -18,7 +18,7 @@
         ],
         "summary": "Get complete analysis results",
         "description": "Returns analysis results including patterns, p-values, novelty scores, and citations. Poll until status is \"completed\". If \"failed\", check error_message.",
-        "operationId": "get_results_v1_runs__run_id__results_get",
+        "operationId": "get_results",
         "parameters": [
           {
             "name": "run_id",
@@ -64,7 +64,7 @@
         ],
         "summary": "List API keys",
         "description": "List all API keys for the current user. Key values are not returned \u2014 only metadata.",
-        "operationId": "list_api_keys_v1_api_keys_get",
+        "operationId": "list_api_keys",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -90,7 +90,7 @@
         ],
         "summary": "Delete API key",
         "description": "Permanently revoke an API key. This action cannot be undone.",
-        "operationId": "delete_api_key_v1_api_keys__key_id__delete",
+        "operationId": "delete_api_key",
         "parameters": [
           {
             "name": "key_id",
@@ -129,7 +129,7 @@
         ],
         "summary": "Get current user",
         "description": "Returns the current authenticated user's profile and session information.",
-        "operationId": "me_v1_me_get",
+        "operationId": "get_me",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -149,7 +149,7 @@
         ],
         "summary": "List my organizations",
         "description": "Returns all organizations the current user belongs to. Use the returned `id` values as the `X-Organization-ID` header for endpoints that require it.",
-        "operationId": "get_my_organizations_v1_me_organizations_get",
+        "operationId": "get_my_organizations",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -169,7 +169,7 @@
         ],
         "summary": "List my runs",
         "description": "Returns all analysis runs for the current user with their current status, job info, and report links. Use this to monitor running analyses or find past results.",
-        "operationId": "get_my_runs_v1_me_runs_get",
+        "operationId": "get_my_runs",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -189,7 +189,7 @@
         ],
         "summary": "List available plans and pricing",
         "description": "Public endpoint \u2014 no authentication required. Returns all available subscription plans with pricing, credit allowances, and feature lists. Credits cost $0.10 each. Credit packs of 100 ($10) are available on all plans. Use this to show users their options before they sign up or upgrade.",
-        "operationId": "list_plans_v1_plans_get",
+        "operationId": "list_plans",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -211,7 +211,7 @@
         ],
         "summary": "Estimate credit cost for an analysis",
         "description": "Estimate the credit cost of an analysis before running it. Returns cost, limits, and (if authenticated) whether you have sufficient credits. No auth required.",
-        "operationId": "estimate_v1_estimate_post",
+        "operationId": "estimate",
         "requestBody": {
           "content": {
             "application/json": {
@@ -253,7 +253,7 @@
         ],
         "summary": "Get account status",
         "description": "Returns current plan, available credits (subscription + purchased), payment method status, and Stripe identifiers. Use this to check credit balance before running a private analysis.",
-        "operationId": "get_account_v1_account_get",
+        "operationId": "get_account",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -275,7 +275,7 @@
         ],
         "summary": "Purchase credit packs",
         "description": "Purchase Disco credits using a stored payment method. Credits cost $0.10 each, sold in packs of 100 ($10/pack). Requires a payment method on file (attach one via `POST /api/account/payment-method`). Returns 402 if no payment method is attached.",
-        "operationId": "purchase_credits_v1_account_credits_purchase_post",
+        "operationId": "purchase_credits",
         "requestBody": {
           "content": {
             "application/json": {
@@ -317,7 +317,7 @@
         ],
         "summary": "Subscribe to or change plan",
         "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 50 credits/mo), Team ($199, 200 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /api/plans` to see all plan details.",
-        "operationId": "subscribe_v1_account_subscribe_post",
+        "operationId": "subscribe",
         "requestBody": {
           "content": {
             "application/json": {
@@ -359,7 +359,7 @@
         ],
         "summary": "Initiate account creation",
         "description": "Zero-touch signup. Sends a 6-digit code to the email. Follow up with POST /api/signup/verify to get an API key. Returns 409 if already registered.",
-        "operationId": "signup_v1_signup_post",
+        "operationId": "signup",
         "requestBody": {
           "content": {
             "application/json": {
@@ -399,7 +399,7 @@
         ],
         "summary": "Verify email and complete account creation",
         "description": "Complete signup by submitting the verification code sent to the email address. Creates the account and returns a ready-to-use API key.\n\nCodes expire after 15 minutes and can only be used once.",
-        "operationId": "verify_signup_v1_signup_verify_post",
+        "operationId": "verify_signup",
         "requestBody": {
           "content": {
             "application/json": {
@@ -873,7 +873,7 @@
         ],
         "summary": "Complete login with verification code",
         "description": "Submit the code sent to email. Returns a new API key. Codes expire after 15 minutes.",
-        "operationId": "login_verify",
+        "operationId": "verify_login",
         "requestBody": {
           "required": true,
           "content": {
@@ -934,7 +934,7 @@
         ],
         "summary": "Attach a payment method",
         "description": "Attach a Stripe payment method to your account. The payment method must be tokenized via Stripe's API first (using the `stripe_publishable_key` from `POST /api/api-keys` or `GET /api/account`) \u2014 card details never touch Disco. Required before purchasing credits or subscribing to a paid plan.",
-        "operationId": "attach_payment_method_api_account_payment_method_post",
+        "operationId": "add_payment_method",
         "requestBody": {
           "content": {
             "application/json": {
@@ -976,7 +976,7 @@
         ],
         "summary": "Start a discovery analysis",
         "description": "Submit an uploaded dataset for analysis. Returns a run_id to poll via GET /api/runs/{run_id}/results.",
-        "operationId": "create_analysis",
+        "operationId": "run_analysis",
         "requestBody": {
           "required": true,
           "content": {
