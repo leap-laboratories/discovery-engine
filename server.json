@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.leap-labs/discovery-engine",
   "title": "Disco",
-  "description": "Find novel, statistically validated patterns in tabular data – hypothesis-free.",
-  "version": "1.0.1",
+  "description": "Find novel, statistically validated patterns in tabular data \u2013 hypothesis-free.",
+  "version": "0.2.102",
   "websiteUrl": "https://www.leap-labs.com",
   "repository": {
     "url": "https://github.com/leap-laboratories/discovery-engine",
