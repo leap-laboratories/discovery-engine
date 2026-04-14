@@ -1,6 +1,6 @@
 [project]
 name = "discovery-engine-mcp"
-version = "0.2.103"
+version = "0.2.104"
 description = "MCP server for Disco — find novel, statistically validated patterns in tabular data"
 readme = "README.md"
 requires-python = ">=3.10"
