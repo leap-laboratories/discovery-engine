@@ -1,6 +1,6 @@
 # Disco
 
-**Find novel, statistically validated patterns in tabular data** — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
+**Find novel, statistically validated patterns in tabular data** — feature interactions, subgroup effects, and conditional relationships that humans and agents miss.
 
 [![PyPI](https://img.shields.io/pypi/v/discovery-engine-api)](https://pypi.org/project/discovery-engine-api/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

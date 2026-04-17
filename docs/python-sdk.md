@@ -1,6 +1,6 @@
 # Disco Python SDK
 
-Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
+Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that humans and agents miss.
 
 ## Installation
 
