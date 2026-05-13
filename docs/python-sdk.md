@@ -289,10 +289,10 @@ result = await engine.add_payment_method("pm_...")
 
 # Subscribe to a plan
 result = await engine.subscribe("tier_1")
-# Plans: "free_tier" ($0, 10 cr/mo), "tier_1" ($49, 50 cr/mo), "tier_2" ($199, 200 cr/mo)
+# Plans: "free_tier" ($0, 10 cr/mo), "tier_1" ($49, 500 cr/mo), "tier_2" ($199, 2000 cr/mo)
 # result["plan"]            -> "tier_1"
 # result["price_usd"]       -> 49
-# result["monthly_credits"] -> 50
+# result["monthly_credits"] -> 500
 
 # Purchase credit packs (100 credits per pack, $10/pack)
 result = await engine.purchase_credits(packs=1)

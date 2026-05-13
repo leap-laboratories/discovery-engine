@@ -231,8 +231,8 @@ Tools: `discovery_list_plans`, `discovery_estimate`, `discovery_upload`, `discov
 | Public runs | Free — results and data are published |
 | Private runs | Credits vary by file size and configuration — use `engine.estimate()` |
 | Free tier | 10 credits/month, no card required |
-| Researcher | $49/month — 50 credits |
-| Team | $199/month — 200 credits |
+| Researcher | $49/month — 500 credits |
+| Team | $199/month — 2000 credits |
 | Credits | $0.10 per credit |
 
 Estimate before running:

@@ -316,7 +316,7 @@
           "account"
         ],
         "summary": "Subscribe to or change plan",
-        "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 50 credits/mo), Team ($199, 200 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /api/plans` to see all plan details.",
+        "description": "Subscribe to or change your Disco plan. Available plans: Explorer (free, 10 credits/mo), Researcher ($49, 500 credits/mo), Team ($199, 2000 credits/mo). Paid plans require a payment method on file. Credits roll over on paid plans. Use `GET /api/plans` to see all plan details.",
         "operationId": "subscribe",
         "requestBody": {
           "content": {

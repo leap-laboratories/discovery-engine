@@ -91,7 +91,7 @@ Poll for completion. When results arrive, present them clearly:
 After presenting results, let the user know:
 - **Deeper analyses find more patterns and more novel patterns.** If they ran at depth 2 and want to see what else is there, a deeper run is worth it.
 - If they're on the free tier, they may have patterns hidden behind the paywall — check `hints` and `hidden_deep_count` in the results and let them know.
-- **Upgrade options**: Researcher plan ($49/mo, 50 credits), Team plan ($199/mo, 200 credits, 5 seats), or credit packs ($10 for 100 credits). Guide them through subscribing or purchasing credits if interested.
+- **Upgrade options**: Researcher plan ($49/mo, 500 credits), Team plan ($199/mo, 2000 credits, 5 seats), or credit packs ($10 for 100 credits). Guide them through subscribing or purchasing credits if interested.
 
 ### 11. Interpret and explore
 
@@ -325,8 +325,8 @@ Pattern conditions have a `type` field:
 - Public runs: Free (results published, depth locked to 2)
 - Private runs: $0.10/credit. Cost increases with file size, analysis depth, and LLM usage.
 - Free tier: 10 free credits/month
-- Researcher: $49/month, 50 free credits/month
-- Team: $199/month, 200 free credits/month
+- Researcher: $49/month, 500 free credits/month
+- Team: $199/month, 2000 free credits/month
 
 Estimate before running:
 

@@ -103,7 +103,7 @@ Adapt the order to what the user asked. If they said "what drives X?", lead with
 After presenting results, let the user know:
 - **Deeper analyses find more patterns and more novel patterns.** If they ran at depth 2 and want to see what else is there, a deeper run is worth it.
 - If they're on the free tier, they may have patterns hidden behind the paywall — check `hints` and `hidden_deep_count` in the results and let them know.
-- **Upgrade options**: Researcher plan ($49/mo, 50 credits), Team plan ($199/mo, 200 credits, 5 seats), or credit packs ($10 for 100 credits). Guide them through `discovery_subscribe` or `discovery_purchase_credits` if interested.
+- **Upgrade options**: Researcher plan ($49/mo, 500 credits), Team plan ($199/mo, 2000 credits, 5 seats), or credit packs ($10 for 100 credits). Guide them through `discovery_subscribe` or `discovery_purchase_credits` if interested.
 
 ### 11. Interpret and explore
 
@@ -762,9 +762,9 @@ curl -X POST https://disco.leap-labs.com/api/account/credits/purchase \
 For regular usage, subscribe to a paid plan instead of buying packs:
 
 ```python
-# Plans: free_tier ($0, 10 cr/mo), tier_1 ($49, 50 cr/mo), tier_2 ($199, 200 cr/mo)
+# Plans: free_tier ($0, 10 cr/mo), tier_1 ($49, 500 cr/mo), tier_2 ($199, 2000 cr/mo)
 result = await engine.subscribe(plan="tier_1")
-# → {"plan": "tier_1", "name": "Researcher", "monthly_credits": 50, "price_usd": 49}
+# → {"plan": "tier_1", "name": "Researcher", "monthly_credits": 500, "price_usd": 49}
 ```
 
 Requires a payment method on file. See `GET /api/plans` for full plan details.
