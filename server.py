@@ -152,14 +152,20 @@ def _resolve_api_key(api_key: str | None) -> str | None:
     When a Claude.ai user connects via OAuth, their API key is embedded in
     the bearer token. This function checks for it automatically so tool
     functions don't need OAuth-specific logic.
+
+    On the hosted MCP server (MCP_OAUTH_SECRET set), an unauthenticated caller
+    must NOT fall back to DISCOVERY_API_KEY — that would silently route their
+    requests through whichever account owns the env-var key, which historically
+    burned real money on test@leap-labs.com's card. Local CLI usage (no OAuth
+    secret configured) keeps the env-var fallback as a single-user convenience.
     """
-    # Check OAuth context (set by DualAuthMiddleware when bearer token is present)
     if _OAUTH_SECRET:
         from mcp.server.auth.middleware.auth_context import get_access_token
 
         token = get_access_token()
         if token and hasattr(token, "api_key") and token.api_key:
             return token.api_key
+        return api_key
     return api_key or _ENV_API_KEY
 
 
@@ -247,7 +253,7 @@ def _build_result_hints(data: dict) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="List Plans", readOnlyHint=True))
 async def discovery_list_plans() -> str:
     """List available Disco plans with pricing.
 
@@ -263,47 +269,41 @@ async def discovery_list_plans() -> str:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="Estimate Analysis Cost", readOnlyHint=True))
 async def discovery_estimate(
     file_size_mb: float,
     num_columns: int,
     analysis_depth: int = 2,
-    visibility: str = "public",
-    use_llms: bool = False,
     api_key: str | None = None,
 ) -> str:
-    """Estimate the credit cost of an analysis before running it.
+    """Estimate the credits required to run a Disco analysis.
 
-    Returns credit cost, whether you have sufficient credits, and whether a free
-    public alternative exists. Always call this before discovery_analyze for
-    private runs.
+    Returns `required_credits` for public (always 0) and private, with private
+    split by whether LLMs are enabled (use_llms=False is faster, use_llms=True
+    adds smarter preprocessing, literature context and a written summary).
+    Also returns per-visibility depth caps and accepted file formats. No
+    authentication required — when an API key is supplied, also returns the
+    caller's available credits.
+
+    Call this before discovery_analyze whenever cost or feasibility is unclear.
 
     Args:
         file_size_mb: Size of the dataset in megabytes.
         num_columns: Number of columns in the dataset.
-        analysis_depth: Search depth (1=fast, higher=deeper). Default 1.
-        visibility: "public" (free, results published) or "private" (costs credits).
-        use_llms: Slower and more expensive, but you get smarter pre-processing, summary page, literature context and pattern novelty assessment. Only applies to private runs — public runs always use LLMs. Default false.
-        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        analysis_depth: Search depth (1=fast, higher=deeper). Used to compute the
+            private-run cost. Default 2.
+        api_key: Disco API key (disco_...). Optional. When provided, the response
+            includes `account.available_credits`.
     """
-    resolved_key = _resolve_api_key(api_key)
-    if not resolved_key:
-        return json.dumps(
-            {"error": "API key required. Pass api_key or set DISCOVERY_API_KEY env var."}
-        )
-
-    vis_err = _validate_visibility(visibility)
-    if vis_err:
-        return json.dumps({"error": vis_err})
-
     payload: dict = {
         "file_size_mb": file_size_mb,
         "num_columns": num_columns,
         "analysis_depth": analysis_depth,
-        "visibility": visibility,
-        "use_llms": use_llms,
     }
 
+    # API key is optional for estimate — pass it through if available so the
+    # response can include account info, but don't require it.
+    resolved_key = _resolve_api_key(api_key)
     result = await _dashboard_request(
         "POST", "/api/estimate", api_key=resolved_key, json_body=payload
     )
@@ -322,7 +322,9 @@ _MIME_TYPES = {
 }
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=False, idempotentHint=False))
+@mcp.tool(
+    annotations=ToolAnnotations(title="Upload Dataset", destructiveHint=False, idempotentHint=False)
+)
 async def discovery_upload(
     file_content: str | None = None,
     file_name: str = "data.csv",
@@ -503,7 +505,11 @@ async def discovery_upload(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=True, idempotentHint=False))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Run Discovery Analysis", destructiveHint=True, idempotentHint=False
+    )
+)
 async def discovery_analyze(
     target_column: str,
     file_ref: str | dict | None = None,
@@ -647,7 +653,7 @@ async def discovery_analyze(
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="Check Analysis Status", readOnlyHint=True))
 async def discovery_status(run_id: str, api_key: str | None = None) -> str:
     """Check the status of a Disco run.
 
@@ -690,7 +696,7 @@ async def discovery_status(run_id: str, api_key: str | None = None) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="Get Analysis Results", readOnlyHint=True))
 async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
     """Fetch the full results of a completed Disco run.
 
@@ -729,7 +735,7 @@ async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="Get Account Info", readOnlyHint=True))
 async def discovery_account(api_key: str | None = None) -> str:
     """Check your Disco account status.
 
@@ -750,7 +756,7 @@ async def discovery_account(api_key: str | None = None) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="Sign Up", destructiveHint=False, idempotentHint=True))
 async def discovery_signup(email: str, name: str = "") -> str:
     """Create a Disco account and get an API key.
 
@@ -773,7 +779,9 @@ async def discovery_signup(email: str, name: str = "") -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True))
+@mcp.tool(
+    annotations=ToolAnnotations(title="Verify Sign Up", destructiveHint=False, idempotentHint=True)
+)
 async def discovery_signup_verify(email: str, code: str) -> str:
     """Complete Disco signup using an email verification code.
 
@@ -793,7 +801,7 @@ async def discovery_signup_verify(email: str, code: str) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(title="Log In", destructiveHint=False, idempotentHint=True))
 async def discovery_login(email: str) -> str:
     """Get a new API key for an existing Disco account.
 
@@ -811,7 +819,9 @@ async def discovery_login(email: str) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True))
+@mcp.tool(
+    annotations=ToolAnnotations(title="Verify Log In", destructiveHint=False, idempotentHint=True)
+)
 async def discovery_login_verify(email: str, code: str) -> str:
     """Complete login and receive a new API key.
 
@@ -831,7 +841,11 @@ async def discovery_login_verify(email: str, code: str) -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Add Payment Method", destructiveHint=False, idempotentHint=True
+    )
+)
 async def discovery_add_payment_method(payment_method_id: str, api_key: str | None = None) -> str:
     """Attach a Stripe payment method to your Disco account.
 
@@ -862,7 +876,11 @@ async def discovery_add_payment_method(payment_method_id: str, api_key: str | No
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=True, idempotentHint=False))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Purchase Credits", destructiveHint=True, idempotentHint=False
+    )
+)
 async def discovery_purchase_credits(packs: int = 1, api_key: str | None = None) -> str:
     """Purchase Disco credit packs using a stored payment method.
 
@@ -889,14 +907,18 @@ async def discovery_purchase_credits(packs: int = 1, api_key: str | None = None)
     return json.dumps(result, indent=2)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=True, idempotentHint=True))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Subscribe to Plan", destructiveHint=True, idempotentHint=True
+    )
+)
 async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
     """Subscribe to or change your Disco plan.
 
     Available plans:
     - "free_tier": Explorer — free, 10 credits/month
-    - "tier_1": Researcher — $49/month, 50 credits/month
-    - "tier_2": Team — $199/month, 200 credits/month
+    - "tier_1": Researcher — $49/month, 500 credits/month
+    - "tier_2": Team — $199/month, 2000 credits/month
 
     Paid plans require a payment method on file. Credits roll over on paid plans.
 
