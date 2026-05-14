@@ -98,6 +98,22 @@ Poll with `discovery_status` until complete, then fetch with `discovery_get_resu
 
 Adapt the order to what the user asked. If they said "what drives X?", lead with feature importance. If they said "find something new", lead with novel patterns.
 
+#### Pattern fields you'll render
+
+Every pattern in `result.patterns` is a dict (MCP) / `Pattern` dataclass (SDK) with at least:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `description` | str | Pre-rendered sentence describing the pattern in plain English. Use this verbatim — don't try to compose your own from `conditions`. |
+| `conditions` | list[dict] | Feature ranges/values that define the pattern. Each item has `feature`, `type` ("continuous"/"categorical"), and either `min_value`/`max_value` or `values`. |
+| `p_value` | float | FDR-adjusted p-value on hold-out data. |
+| `novelty_type` | str | `"novel"` (not in existing literature) or `"confirmatory"` (validates known finding). |
+| `novelty_explanation` | str | Why Disco classified it as novel/confirmatory, with citations. |
+| `target_change_direction` | str | `"max"` (increases target) or `"min"` (decreases target). |
+| `abs_target_change` | float | Magnitude of effect, in target units. |
+| `support_count` / `support_percentage` | int / float | Rows matching the pattern. |
+| `citations` | list[dict] | Academic citations with `title`, `year`, `doi`, etc. |
+
 ### 10. Go deeper
 
 After presenting results, let the user know:
@@ -385,21 +401,33 @@ This is a computational pipeline, not prompt engineering over data. You cannot r
 
 ## Getting an API Key
 
-**Programmatic (for agents):** Two-step signup — send a verification code to the email, then submit it to receive the API key. The email must be real: the code is sent there and must be read to complete signup.
+**Programmatic (for agents):** POST the email to `/api/signup`. The server either returns the API key directly (free-tier email-only signup, the common case) or asks for OTP verification — branch on the response shape.
 
 ```bash
-# Step 1 — send verification code
 curl -X POST https://disco.leap-labs.com/api/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "agent@example.com"}'
-# → {"status": "verification_required", "email": "agent@example.com"}
+```
 
-# Step 2 — submit code from email to get API key
+Response — direct key (no verification needed):
+```json
+{"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}
+```
+
+Response — verification required (only when the server explicitly asks):
+```json
+{"status": "verification_required", "email": "agent@example.com"}
+```
+
+If you get the latter, the user must read the 6-digit code from their email, then submit it:
+```bash
 curl -X POST https://disco.leap-labs.com/api/signup/verify \
   -H "Content-Type: application/json" \
   -d '{"email": "agent@example.com", "code": "123456"}'
-# → {"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}
+# → {"key": "disco_...", "tier": "free_tier", "credits": 10}
 ```
+
+The Python SDK's `Engine.signup()` and `Engine.login()` already handle both shapes — prefer them over raw HTTP if you can.
 
 
 **Existing account (lost key or new session):** Same OTP flow via `/api/login` and `/api/login/verify`, or in the SDK:
