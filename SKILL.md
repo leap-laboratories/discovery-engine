@@ -223,7 +223,7 @@ discovery_upload(file_path="/home/user/data/dataset.csv")
 discovery_analyze(file_ref=<result above>, target_column="outcome")
 ```
 
-Reads the file locally and streams it directly to cloud storage — nothing passes through the model context. No size limit. **`file_path` is silently ignored by the hosted server at `disco.leap-labs.com/mcp`** — it only works with a locally-running server.
+Reads the file locally and streams it directly to cloud storage — nothing passes through the model context. No size limit. **`file_path` only works with a locally-running server** — calling it against the hosted server at `disco.leap-labs.com/mcp` returns a `File not found` error (the user's path doesn't exist on the hosted machine's filesystem).
 
 ---
 
@@ -295,7 +295,7 @@ discovery_analyze(file_ref=<result above>, target_column="outcome")
 Provide exactly one of `file_url`, `file_path`, or `file_content`.
 
 - `file_url` — http/https URL. The server downloads it directly. Best option for hosted MCP.
-- `file_path` — Absolute path to a local file. **Only works when the MCP server is running locally.** Silently ignored by the hosted server.
+- `file_path` — Absolute path to a local file. **Only works when the MCP server is running locally.** Against the hosted server, returns a `File not found` error.
 - `file_content` — File contents, base64-encoded. **Last resort only** — the content passes through the model's context window, so this only works for very small files.
 - `file_name` — Filename with extension (e.g. `"data.csv"`), used for format detection. Required with `file_content`. Default: `"data.csv"`.
 
