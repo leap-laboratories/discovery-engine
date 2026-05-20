@@ -218,7 +218,8 @@ async def _dashboard_request(
             return {"error": f"Rate limited. Retry after {retry} seconds."}
         if resp.status_code >= 400:
             try:
-                detail = resp.json().get("detail", resp.text)
+                body = resp.json()
+                detail = body.get("error") or body.get("detail") or resp.text
             except Exception:
                 detail = resp.text
             return {"error": f"API error ({resp.status_code}): {detail}"}
