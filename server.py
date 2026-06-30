@@ -709,7 +709,7 @@ async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
     page of the interactive report — use these to direct the user to the most
     relevant view:
     - **summary**: AI-generated overview with key insights, novel findings, and plain-language explanation of the most important findings
-    - **patterns**: Full list of discovered patterns with conditions, effect sizes, p-values, novelty scores, citations, and interactive visualisations
+    - **patterns**: Full list of discovered patterns with conditions, effect sizes, p-values, novelty scores, citations, and interactive visualizations
     - **features**: Feature importances, feature statistics and distribution plots, and correlation matrix
     - **territory**: Interactive 3D map showing how patterns select different regions of the data
 
