@@ -210,7 +210,28 @@ async def _dashboard_request(
             resp = await client.post(path, headers=headers, json=json_body or {}, timeout=timeout)
 
         if resp.status_code == 401:
-            return {"error": "Authentication failed. Check your API key or session token."}
+            # The dashboard distinguishes three different causes here —
+            # InvalidApiKey (no such key, or its user row is gone), ApiKeyExpired,
+            # and a bare Unauthorized from the session path — and returns the code
+            # in the body. Collapsing all of them into one sentence leaves an
+            # intermittent 401 impossible to diagnose after the fact: the caller
+            # cannot tell a wrong key from an expired one from a lost session.
+            # Keep the sentence (it is the actionable part for a human) and append
+            # whatever the server actually said.
+            detail = ""
+            try:
+                body = resp.json()
+                code = body.get("code")
+                message = body.get("error") or body.get("detail")
+                if code and message:
+                    detail = f" ({code}: {message})"
+                elif code or message:
+                    detail = f" ({code or message})"
+            except Exception:  # noqa: BLE001 - a non-JSON 401 body just adds no detail
+                detail = ""
+            return {
+                "error": ("Authentication failed. Check your API key or session token." + detail)
+            }
         if resp.status_code == 402:
             return {"error": "Payment required. Add a payment method first."}
         if resp.status_code == 429:
